@@ -1,0 +1,175 @@
+---
+title: User Management
+description: Managing users, groups, and permissions in Bedrock Chat
+---
+
+Bedrock Chat uses Amazon Cognito user groups to control access to different features. Administrators can assign users to groups to grant specific permissions.
+
+## User Groups
+
+There are three primary user groups in Bedrock Chat:
+
+### Admin
+
+Users in the `Admin` group have full administrative access to the platform, including:
+
+- Access to all administrative endpoints
+- View all users and their usage data
+- Manage bot visibility and essential bot status
+- Access audit logs and analytics
+- View all conversations and user prompts
+- Publish and manage bot APIs
+
+<Note>
+The `Admin` group membership automatically grants `CreatingBotAllowed` and `PublishAllowed` permissions.
+</Note>
+
+### CreatingBotAllowed
+
+Users in the `CreatingBotAllowed` group can create and customize bots with:
+
+- Custom instructions and knowledge bases
+- RAG (Retrieval-Augmented Generation) capabilities
+- Bot sharing via the bot store
+- Knowledge base configuration
+
+<Warning>
+For governance reasons, only users in this group (or Admin) can create customized bots. By default, newly created users are automatically added to this group.
+</Warning>
+
+### PublishAllowed
+
+Users in the `PublishAllowed` group can publish bots as standalone APIs:
+
+- Create API endpoints for bots
+- Manage published API configurations
+- Generate API keys and credentials
+- Monitor API usage
+
+## Managing User Groups
+
+### Via AWS Management Console
+
+1. Navigate to Amazon Cognito in the AWS Management Console
+2. Select the User Pool (ID found in CloudFormation outputs as `AuthUserPoolIdxxxx`)
+3. Go to "Groups" to create or manage groups
+4. Select a user and add them to the desired groups
+
+### Via AWS CLI
+
+Add a user to a group:
+
+```bash
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id <user-pool-id> \
+  --username <username> \
+  --group-name Admin
+```
+
+Remove a user from a group:
+
+```bash
+aws cognito-idp admin-remove-user-from-group \
+  --user-pool-id <user-pool-id> \
+  --username <username> \
+  --group-name CreatingBotAllowed
+```
+
+## Auto-Join User Groups
+
+You can configure newly created users to automatically join specific groups by setting the `autoJoinUserGroups` parameter in `cdk.json`:
+
+```json
+{
+  "autoJoinUserGroups": ["CreatingBotAllowed"]
+}
+```
+
+By default, new users automatically join the `CreatingBotAllowed` group.
+
+## Viewing User Information
+
+Administrators can view user information and usage through the admin API:
+
+### Get All Users
+
+```
+GET /admin/users?limit=100&start=YYYYMMDDHH&end=YYYYMMDDHH
+```
+
+Response includes:
+- User ID and email
+- First and last name
+- Last sign-in time
+- Total usage cost
+
+### Get User Conversations
+
+```
+GET /admin/users/{user_id}/conversations
+```
+
+Returns all conversations for a specific user with:
+- Conversation ID and title
+- Creation time
+- Associated bot ID
+
+### Get User Prompts
+
+```
+GET /admin/users/{user_id}/conversations/{conversation_id}/prompts
+```
+
+Returns all user prompts (messages with role='user') from a conversation:
+- Message ID
+- Prompt content
+- Creation timestamp
+
+## Cost Allocation
+
+Administrators can track costs per user:
+
+```
+GET /admin/costs/users/{user_id}?start_period=YYYY-MM&end_period=YYYY-MM
+```
+
+Response includes:
+- Total cost
+- Input and output tokens consumed
+- Conversation count
+- Cost breakdown by model
+
+## Audit Logging
+
+All user actions are logged for audit purposes:
+
+```
+GET /admin/audit-logs/user/{user_id}?start_time={timestamp}&end_time={timestamp}
+```
+
+Audit logs include:
+- Action type and timestamp
+- Resource accessed
+- IP address and user agent
+- Success status and error messages
+
+## User Usage Analytics
+
+The admin dashboard provides usage analytics:
+
+- Users sorted by total cost
+- Conversation counts and patterns
+- Model usage preferences
+- Time-based usage trends
+
+<Note>
+Users who have not used the system during the specified period will not appear in usage reports unless `include_all=true` is specified.
+</Note>
+
+## Best Practices
+
+1. **Principle of Least Privilege**: Only grant `Admin` access to users who need full system access
+2. **Regular Audits**: Periodically review group memberships and user activity
+3. **Cost Monitoring**: Set up alerts for unusual usage patterns
+4. **Group Assignments**: Use `CreatingBotAllowed` to control bot creation for governance
+5. **API Publishing**: Restrict `PublishAllowed` to authorized users only

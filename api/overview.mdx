@@ -1,0 +1,188 @@
+---
+title: API Overview
+description: Overview of the Bedrock Chat REST API and authentication methods
+---
+
+## Introduction
+
+The Bedrock Chat API provides programmatic access to conversational AI powered by Amazon Bedrock. This RESTful API allows you to create conversations, manage bots, and integrate chat functionality into your applications.
+
+## Base URL
+
+All API requests should be made to your deployed API Gateway endpoint:
+
+```
+https://api.example.com/
+```
+
+## Authentication
+
+The Bedrock Chat API uses two authentication methods depending on the endpoint:
+
+### 1. Cognito JWT Authentication
+
+For regular application endpoints, authentication is done using AWS Cognito JWT tokens.
+
+**Required Headers:**
+
+```http
+Authorization: Bearer <jwt_token>
+```
+
+**Token Verification:**
+
+Tokens are verified against AWS Cognito using the JWKS endpoint:
+
+```
+https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/jwks.json
+```
+
+**Token Requirements:**
+- Algorithm: RS256
+- Audience: Must match the Cognito Client ID
+- Valid signature from Cognito
+
+### 2. API Key Authentication
+
+For published bot APIs, authentication uses API keys created through the bot publication flow.
+
+**Required Headers:**
+
+```http
+x-api-key: <api_key>
+```
+
+API keys can be created and managed through the publication endpoints. See [Published API Endpoints](/api/published-apis) for details.
+
+## Request Format
+
+All POST and PATCH requests must include:
+
+```http
+Content-Type: application/json
+```
+
+## Response Format
+
+All responses are returned in JSON format:
+
+```json
+{
+  "field1": "value1",
+  "field2": "value2"
+}
+```
+
+## Error Handling
+
+The API uses standard HTTP status codes:
+
+| Status Code | Description |
+|-------------|-------------|
+| 200 | Success |
+| 400 | Bad Request - Invalid parameters |
+| 401 | Unauthorized - Invalid or missing authentication |
+| 403 | Forbidden - Insufficient permissions |
+| 404 | Not Found - Resource doesn't exist |
+| 409 | Conflict - Resource state conflict |
+| 500 | Internal Server Error |
+
+**Error Response Format:**
+
+```json
+{
+  "detail": "Error message describing what went wrong"
+}
+```
+
+## Rate Limiting
+
+For published APIs, rate limiting can be configured per bot with:
+
+- **Quota**: Request limits per time period (DAY/WEEK/MONTH)
+- **Throttle**: Rate limit (requests per second) and burst limit
+
+See [Bot Store Endpoints](/api/bot-store) for configuring rate limits.
+
+## Health Check
+
+You can verify API availability using the health check endpoint:
+
+```http
+GET /health
+```
+
+**Response:**
+
+```json
+{
+  "status": "ok"
+}
+```
+
+## Available Models
+
+The API supports the following models:
+
+### Claude Models
+- `claude-v4-opus`
+- `claude-v4.1-opus`
+- `claude-v4.5-opus`
+- `claude-v4-sonnet`
+- `claude-v4.5-sonnet`
+- `claude-v4.5-haiku`
+- `claude-v3.5-sonnet`
+- `claude-v3.5-sonnet-v2`
+- `claude-v3.7-sonnet`
+- `claude-v3.5-haiku`
+- `claude-v3-haiku`
+- `claude-v3-opus`
+
+### Mistral Models
+- `mistral-7b-instruct`
+- `mixtral-8x7b-instruct`
+- `mistral-large`
+- `mistral-large-2`
+
+### Amazon Nova Models
+- `amazon-nova-pro`
+- `amazon-nova-lite`
+- `amazon-nova-micro`
+
+### Other Models
+- `deepseek-r1`
+- `llama3-3-70b-instruct`
+- `llama3-2-1b-instruct`
+- `llama3-2-3b-instruct`
+- `llama3-2-11b-instruct`
+- `llama3-2-90b-instruct`
+- `gpt-oss-20b`
+- `gpt-oss-120b`
+
+## Content Types
+
+The API supports multiple content types in messages:
+
+- **text**: Plain text content
+- **image**: Base64-encoded images (Claude 3+ only)
+- **attachment**: File attachments
+- **toolUse**: Tool invocation requests
+- **toolResult**: Tool execution results
+- **reasoning**: Reasoning traces (for reasoning-enabled models)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Conversations" icon="messages" href="/api/conversations">
+    Learn about conversation management endpoints
+  </Card>
+  <Card title="Bots" icon="robot" href="/api/bots">
+    Explore bot creation and management
+  </Card>
+  <Card title="Bot Store" icon="store" href="/api/bot-store">
+    Discover bot store and search functionality
+  </Card>
+  <Card title="Published APIs" icon="globe" href="/api/published-apis">
+    Publish and share bot APIs
+  </Card>
+</CardGroup>

@@ -1,0 +1,285 @@
+---
+title: Supported Regions
+description: AWS regions where Bedrock Chat can be deployed
+---
+
+Bedrock Chat requires specific AWS services to be available in your chosen deployment region. This page outlines the supported regions and service availability requirements.
+
+## Supported Deployment Regions
+
+Bedrock Chat can be deployed in regions where **Amazon OpenSearch Serverless** and **Ingestion APIs** are available (required for bots and knowledge bases).
+
+### Fully Supported Regions
+
+As of August 2025, the following regions support all required services:
+
+<AccordionGroup>
+  <Accordion title="US Regions">
+    - `us-east-1` - US East (N. Virginia)
+    - `us-east-2` - US East (Ohio)
+    - `us-west-1` - US West (N. California)
+    - `us-west-2` - US West (Oregon)
+  </Accordion>
+  
+  <Accordion title="Asia Pacific Regions">
+    - `ap-south-1` - Asia Pacific (Mumbai)
+    - `ap-northeast-1` - Asia Pacific (Tokyo)
+    - `ap-northeast-2` - Asia Pacific (Seoul)
+    - `ap-southeast-1` - Asia Pacific (Singapore)
+    - `ap-southeast-2` - Asia Pacific (Sydney)
+  </Accordion>
+  
+  <Accordion title="Europe Regions">
+    - `eu-central-1` - Europe (Frankfurt)
+    - `eu-west-1` - Europe (Ireland)
+    - `eu-west-2` - Europe (London)
+    - `eu-south-2` - Europe (Spain)
+    - `eu-north-1` - Europe (Stockholm)
+  </Accordion>
+  
+  <Accordion title="Other Regions">
+    - `ca-central-1` - Canada (Central)
+    - `sa-east-1` - South America (São Paulo)
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+Check the [official AWS documentation](https://docs.aws.amazon.com/general/latest/gr/opensearch-service.html) for the most up-to-date list of regions where OpenSearch Serverless is available.
+</Tip>
+
+## Service Availability Requirements
+
+Bedrock Chat requires the following AWS services in your deployment region:
+
+### Core Services (Required)
+
+<CardGroup cols={2}>
+  <Card title="Amazon OpenSearch Serverless" icon="database">
+    Vector database for knowledge bases (RAG)
+  </Card>
+  <Card title="OpenSearch Ingestion APIs" icon="upload">
+    Document ingestion for knowledge bases
+  </Card>
+  <Card title="Amazon DynamoDB" icon="table">
+    Conversation and bot metadata storage
+  </Card>
+  <Card title="Amazon S3" icon="bucket">
+    Document storage and static hosting
+  </Card>
+  <Card title="AWS Lambda" icon="lambda">
+    Backend API functions
+  </Card>
+  <Card title="Amazon API Gateway" icon="network-wired">
+    REST and WebSocket APIs
+  </Card>
+  <Card title="Amazon Cognito" icon="users">
+    User authentication
+  </Card>
+  <Card title="Amazon CloudFront" icon="cloud">
+    Frontend content delivery
+  </Card>
+</CardGroup>
+
+### Optional Services
+
+- **Lambda SnapStart**: Improves Lambda cold start performance
+  - Not available in all regions ([check availability](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html#snapstart-supported-regions))
+  - Can be disabled with `enableLambdaSnapStart: false`
+
+## Bedrock Region Configuration
+
+The `bedrockRegion` parameter specifies where Bedrock API calls are made. This can be **different** from your deployment region.
+
+### Important Considerations
+
+<Warning>
+**Bedrock is NOT available in all AWS regions.** You must choose a region where Bedrock is available.
+</Warning>
+
+1. **Deployment Region**: Where Bedrock Chat infrastructure is deployed
+2. **Bedrock Region**: Where Bedrock API calls are made (can be different)
+
+### Example Configuration
+
+```typescript
+// Deploy infrastructure in Tokyo
+// But use Bedrock in US East
+bedrockChatParams.set("default", {
+  bedrockRegion: "us-east-1",  // Bedrock API calls
+});
+
+// Deploy to ap-northeast-1 (Tokyo)
+npx cdk deploy --all
+```
+
+### Bedrock Available Regions
+
+Check which regions support Bedrock:
+- [Amazon Bedrock endpoints and quotas](https://docs.aws.amazon.com/general/latest/gr/bedrock.html)
+
+<Tip>
+**Model Availability**: Different Bedrock regions support different models. Ensure the models you want to use are available in your chosen Bedrock region.
+</Tip>
+
+## Cross-Region and Global Inference
+
+Bedrock Chat supports cross-region and global inference for improved availability and performance:
+
+### Cross-Region Inference
+
+Routes inference requests within the same AWS region group (e.g., within US regions).
+
+```typescript
+bedrockChatParams.set("default", {
+  enableBedrockCrossRegionInference: true,  // default: true
+});
+```
+
+### Global Inference
+
+Routes inference requests to the optimal region worldwide based on latency and availability.
+
+```typescript
+bedrockChatParams.set("default", {
+  enableBedrockGlobalInference: true,  // default: true
+});
+```
+
+<Note>
+Some Service Control Policies (SCPs) may restrict cross-region or global inference. You can disable these features independently if needed.
+</Note>
+
+## Frontend WAF Region
+
+<Warning>
+**US East 1 Required**: CloudFront Web ACLs (AWS WAF) must be created in the `us-east-1` region.
+</Warning>
+
+If your organization restricts resource creation outside your primary region:
+
+```typescript
+bedrockChatParams.set("default", {
+  enableFrontendWaf: false,  // Disable CloudFront WAF
+});
+```
+
+<Info>
+Disabling the Frontend WAF removes IP allow/deny controls at the CloudFront edge. Authentication and other application controls continue to work normally.
+</Info>
+
+## Region-Specific Considerations
+
+### Lambda SnapStart Regions
+
+Lambda SnapStart is not available in all regions. If deploying to a region without SnapStart support:
+
+```typescript
+bedrockChatParams.set("default", {
+  enableLambdaSnapStart: false,
+});
+```
+
+Or via command line:
+
+```bash
+./bin.sh  # SnapStart is disabled by default in bin.sh
+```
+
+### IPv6 Support
+
+CloudFront supports IPv6 in all regions by default. To disable:
+
+```typescript
+bedrockChatParams.set("default", {
+  enableFrontendIpv6: false,
+});
+```
+
+Or via command line:
+
+```bash
+./bin.sh --disable-ipv6
+```
+
+## Multi-Region Deployments
+
+You can deploy Bedrock Chat in multiple regions for:
+
+- **High Availability**: Redundancy across regions
+- **Data Residency**: Keep data in specific geographic regions
+- **Latency Optimization**: Serve users from nearby regions
+
+### Example: Multi-Region Setup
+
+```typescript
+// Tokyo deployment
+bedrockChatParams.set("tokyo", {
+  bedrockRegion: "us-east-1",  // Bedrock calls to US
+});
+
+// Frankfurt deployment
+bedrockChatParams.set("frankfurt", {
+  bedrockRegion: "us-east-1",  // Bedrock calls to US
+});
+```
+
+Deploy to specific regions:
+
+```bash
+# Deploy to Tokyo (ap-northeast-1)
+AWS_DEFAULT_REGION=ap-northeast-1 npx cdk deploy --all -c envName=tokyo
+
+# Deploy to Frankfurt (eu-central-1)
+AWS_DEFAULT_REGION=eu-central-1 npx cdk deploy --all -c envName=frankfurt
+```
+
+<Note>
+Each regional deployment is independent with its own users, bots, and data.
+</Note>
+
+## Verifying Service Availability
+
+Before deploying, verify service availability in your chosen region:
+
+<Steps>
+  <Step title="Check OpenSearch Serverless">
+    Visit the [OpenSearch Service console](https://console.aws.amazon.com/aos/home) in your target region and verify Serverless is available.
+  </Step>
+  
+  <Step title="Check Bedrock Availability">
+    Visit the [Bedrock console](https://console.aws.amazon.com/bedrock/home) in your Bedrock region and verify model access.
+  </Step>
+  
+  <Step title="Verify Other Services">
+    Ensure your account has access to Lambda, API Gateway, DynamoDB, and other required services.
+  </Step>
+</Steps>
+
+## Pricing Considerations
+
+Different regions have different pricing for AWS services. Key considerations:
+
+- **Data Transfer**: Cross-region Bedrock API calls incur data transfer charges
+- **OpenSearch Serverless**: Pricing varies by region
+- **CloudFront**: Pricing varies by edge location
+
+<Tip>
+Use the [AWS Pricing Calculator](https://calculator.aws/) to estimate costs for your chosen regions.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="CloudShell Deployment" icon="cloud" href="/deployment/cloudshell">
+    Deploy to your chosen region
+  </Card>
+  <Card title="Parameters Reference" icon="book" href="/deployment/parameters">
+    Configure region-specific parameters
+  </Card>
+  <Card title="Multi-Environment" icon="layer-group" href="/deployment/multi-environment">
+    Set up multiple environments
+  </Card>
+  <Card title="Bedrock Model Access" icon="robot" href="/configuration/models">
+    Enable models in your Bedrock region
+  </Card>
+</CardGroup>

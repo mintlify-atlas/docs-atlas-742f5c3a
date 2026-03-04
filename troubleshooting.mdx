@@ -1,0 +1,629 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for Bedrock Chat deployment and operations
+---
+
+## Deployment Issues
+
+### CDK Bootstrap Errors
+
+<AccordionGroup>
+  <Accordion title="Insufficient storage space during deployment">
+    **Error**: CDK bootstrapping fails with storage-related errors
+    
+    **Cause**: The local environment or EC2 instance running the deployment doesn't have enough disk space.
+    
+    **Solution**:
+    ```bash
+    # Check available disk space
+    df -h
+    
+    # If using EC2, expand the volume size before deploying
+    # Then resize the filesystem
+    sudo growpart /dev/xvda 1
+    sudo resize2fs /dev/xvda1
+    ```
+    
+    <Note>
+    We recommend expanding the volume size of the instance before deploying if available storage is less than 20GB.
+    </Note>
+  </Accordion>
+  
+  <Accordion title="CDK deployment fails in unsupported region">
+    **Error**: Deployment fails with service availability errors
+    
+    **Cause**: Not all AWS regions support all required services.
+    
+    **Solution**:
+    Ensure you're deploying in a region where OpenSearch Serverless and Ingestion APIs are available:
+    
+    Supported regions (as of August 2025):
+    - US: us-east-1, us-east-2, us-west-1, us-west-2
+    - Asia Pacific: ap-south-1, ap-northeast-1, ap-northeast-2, ap-southeast-1, ap-southeast-2
+    - Canada: ca-central-1
+    - Europe: eu-central-1, eu-west-1, eu-west-2, eu-south-2, eu-north-1
+    - South America: sa-east-1
+    
+    See [Deployment Regions](/deployment/regions) for more details.
+  </Accordion>
+  
+  <Accordion title="Lambda SnapStart not supported in region">
+    **Error**: Deployment fails when `enableLambdaSnapStart` is true
+    
+    **Cause**: Lambda SnapStart for Python functions is not available in all regions.
+    
+    **Solution**:
+    Edit `cdk.json` and set `enableLambdaSnapStart` to `false`:
+    
+    ```json
+    {
+      "enableLambdaSnapStart": false
+    }
+    ```
+    
+    Check [Lambda SnapStart supported regions](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html#snapstart-supported-regions) for availability.
+  </Accordion>
+</AccordionGroup>
+
+### CloudFormation Stack Issues
+
+<AccordionGroup>
+  <Accordion title="Subnet deletion failures during stack update">
+    **Error**: `Resource handler returned message: "The subnet 'subnet-xxx' has dependencies and cannot be deleted."`
+    
+    **Cause**: Network interfaces associated with the subnet are preventing deletion.
+    
+    **Solution**:
+    1. Navigate to AWS Console > EC2 > Network Interfaces
+    2. Search for "BedrockChatStack"
+    3. Delete all displayed network interfaces associated with this name
+    4. Retry the CloudFormation stack update
+    
+    <Warning>
+    Only delete network interfaces specifically associated with BedrockChatStack to avoid impacting other services.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="CloudFormation output value conflicts during upgrade">
+    **Error**: Output key conflicts during V2 to V3 migration
+    
+    **Cause**: Published APIs create output values that conflict with new stack outputs.
+    
+    **Solution**:
+    1. Log in as administrator
+    2. Navigate to Admin > API Management
+    3. Delete all published APIs
+    4. Verify all `APIPublishmentStackXXXX` stacks are removed from CloudFormation
+    5. Retry the deployment
+    
+    See [V2 to V3 Migration Guide](/migration/v2-to-v3) for details.
+  </Accordion>
+  
+  <Accordion title="Stack rollback due to Aurora cluster deletion">
+    **Error**: Cannot delete Aurora cluster during stack update
+    
+    **Cause**: Published APIs or other resources depend on the Aurora cluster.
+    
+    **Solution**:
+    Before deploying V1 or V2:
+    1. Delete all published bot APIs
+    2. Remove any manual database connections
+    3. Check for Lambda functions with VPC connections to the database
+    4. Retry the deployment
+  </Accordion>
+</AccordionGroup>
+
+### Model Access Issues
+
+<AccordionGroup>
+  <Accordion title="Bedrock model not available">
+    **Error**: Model fails to respond or shows "not available" error
+    
+    **Cause**: Model access not enabled in Amazon Bedrock console.
+    
+    **Solution**:
+    1. Navigate to [Bedrock Model access](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess)
+    2. Click "Manage model access"
+    3. Check all models you wish to use
+    4. Click "Save changes"
+    5. Wait for access request to be approved (usually immediate)
+    
+    <Note>
+    You must enable model access in the region specified by the `bedrockRegion` parameter in your deployment configuration.
+    </Note>
+  </Accordion>
+  
+  <Accordion title="Model not appearing in dropdown">
+    **Error**: Expected model doesn't appear in chat or bot creation interface
+    
+    **Cause**: Model not included in `globalAvailableModels` configuration.
+    
+    **Solution**:
+    Edit `cdk.json` to include the model:
+    
+    ```json
+    {
+      "globalAvailableModels": [
+        "claude-v3.7-sonnet",
+        "claude-v3.5-sonnet",
+        "amazon-nova-pro",
+        "amazon-nova-lite"
+      ]
+    }
+    ```
+    
+    If `globalAvailableModels` is an empty list, all models are enabled by default.
+    
+    Supported model IDs are listed in [Configuration](/configuration/models).
+  </Accordion>
+</AccordionGroup>
+
+## Runtime Issues
+
+### Authentication and Access
+
+<AccordionGroup>
+  <Accordion title="Users unable to self-register">
+    **Error**: Sign-up page not working or disabled
+    
+    **Cause**: Self-registration is disabled in deployment configuration.
+    
+    **Solution**:
+    
+    **If self-registration should be enabled**:
+    Edit `cdk.json`:
+    ```json
+    {
+      "selfSignUpEnabled": true
+    }
+    ```
+    Then redeploy.
+    
+    **If self-registration should remain disabled**:
+    Create users manually in Amazon Cognito:
+    ```bash
+    aws cognito-idp admin-create-user \
+      --user-pool-id YOUR_USER_POOL_ID \
+      --username user@example.com \
+      --user-attributes Name=email,Value=user@example.com \
+      --message-action SUPPRESS
+    ```
+  </Accordion>
+  
+  <Accordion title="User group changes not taking effect">
+    **Error**: Adding user to group doesn't grant expected permissions
+    
+    **Cause**: User needs to re-login for group membership changes to take effect.
+    
+    **Solution**:
+    1. Log out of Bedrock Chat completely
+    2. Clear browser cache/cookies (optional but recommended)
+    3. Log back in
+    4. Verify group membership in Cognito console
+    
+    <Note>
+    Group membership changes are reflected at token refresh, but not during the ID token validity period (default 30 minutes in V3, configurable via `tokenValidMinutes` in `cdk.json`).
+    </Note>
+  </Accordion>
+  
+  <Accordion title="Users can't create bots">
+    **Error**: Bot creation button is disabled or returns permission error
+    
+    **Cause**: User is not a member of the `CreatingBotAllowed` group.
+    
+    **Solution**:
+    Add user to the group:
+    
+    ```bash
+    # Get the user pool ID
+    aws cloudformation describe-stacks \
+      --stack-name BedrockChatStack \
+      --query "Stacks[0].Outputs[?OutputKey=='AuthUserPoolId'].OutputValue" \
+      --output text
+    
+    # Add user to group
+    aws cognito-idp admin-add-user-to-group \
+      --user-pool-id YOUR_USER_POOL_ID \
+      --username user@example.com \
+      --group-name CreatingBotAllowed
+    ```
+    
+    User must log out and log back in for changes to take effect.
+  </Accordion>
+  
+  <Accordion title="IP address blocked">
+    **Error**: Access denied due to IP restriction
+    
+    **Cause**: User's IP address is not in the allowed ranges.
+    
+    **Solution**:
+    Update allowed IP ranges in `cdk.json`:
+    
+    ```json
+    {
+      "allowedIpV4AddressRanges": ["192.168.1.0/24", "10.0.0.0/8"],
+      "allowedIpV6AddressRanges": ["2001:db8::/32"]
+    }
+    ```
+    
+    Or use deployment parameters:
+    ```bash
+    ./bin.sh --ipv4-ranges "192.168.1.0/24,10.0.0.0/8"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Bot and RAG Issues
+
+<AccordionGroup>
+  <Accordion title="Bot not using uploaded documents">
+    **Error**: Bot responses don't include information from uploaded documents
+    
+    **Possible Causes & Solutions**:
+    
+    **1. Synchronization not complete**:
+    - Check bot status in the UI
+    - Wait for "Synchronized" status
+    - Synchronization can take several minutes for large documents
+    
+    **2. Knowledge Base configuration issue**:
+    ```bash
+    # Check Knowledge Base sync status
+    aws bedrock-agent get-knowledge-base \
+      --knowledge-base-id YOUR_KB_ID
+    
+    # Check data source sync status
+    aws bedrock-agent list-data-source-sync-jobs \
+      --knowledge-base-id YOUR_KB_ID \
+      --data-source-id YOUR_DATA_SOURCE_ID
+    ```
+    
+    **3. Document parsing failed**:
+    - Check CloudWatch Logs for the embedding Step Functions
+    - Verify document format is supported (PDF, TXT, MD, etc.)
+    - Try re-uploading the document
+    
+    **4. Search not retrieving relevant chunks**:
+    - Questions may not match document content closely enough
+    - Try asking more specific questions
+    - Consider adjusting chunk size in bot configuration
+  </Accordion>
+  
+  <Accordion title="Bot synchronization stuck or failing">
+    **Error**: Bot shows "Synchronizing" status indefinitely
+    
+    **Solution**:
+    
+    **Check Step Functions execution**:
+    1. Navigate to AWS Console > Step Functions
+    2. Find the EmbeddingStateMachine
+    3. Check recent executions for errors
+    4. Review CloudWatch Logs for detailed error messages
+    
+    **Common causes**:
+    - Document too large (reduce size or split into multiple files)
+    - Invalid document format (ensure supported format)
+    - S3 bucket permissions issue
+    - Knowledge Base quota exceeded
+    
+    **Manual retry**:
+    ```bash
+    # Update bot sync status to QUEUED
+    aws dynamodb update-item \
+      --table-name YOUR_BOT_TABLE \
+      --key '{"PK": {"S": "USER#user-id"}, "SK": {"S": "BOT#bot-id"}}' \
+      --update-expression "SET SyncStatus = :status" \
+      --expression-attribute-values '{":status": {"S": "QUEUED"}}'
+    
+    # Trigger Step Functions
+    aws stepfunctions start-execution \
+      --state-machine-arn YOUR_STATE_MACHINE_ARN
+    ```
+  </Accordion>
+  
+  <Accordion title="Cannot share bot or bot not appearing in Bot Store">
+    **Error**: Bot sharing options not working or bot not visible to others
+    
+    **V3-specific solutions**:
+    
+    **For Bot Store visibility**:
+    - Bot must be set to "Public" sharing
+    - Wait a few minutes for indexing
+    - Try searching by exact bot name
+    
+    **For group-based sharing**:
+    - Verify user groups exist in Cognito
+    - Ensure target users are members of the selected groups
+    - Users must re-login for group membership to take effect
+    
+    **For API publishing**:
+    - User must be member of `PublishAllowed` group
+    - Bot must be public
+    - See [API Publishing](/features/api-publishing) for requirements
+  </Accordion>
+  
+  <Accordion title="Essential bot cannot be modified or deleted">
+    **Error**: Cannot change settings or delete a bot marked as essential
+    
+    **Cause**: Essential bots have special protections in V3.
+    
+    **Solution**:
+    Only administrators can modify essential bot status:
+    1. Log in as administrator (member of `Admin` group)
+    2. Navigate to Admin > Bot Management
+    3. Unmark bot as essential
+    4. Now you can modify or delete the bot
+    
+    Essential bots also cannot have sharing turned off while marked as essential.
+  </Accordion>
+</AccordionGroup>
+
+### Performance Issues
+
+<AccordionGroup>
+  <Accordion title="Slow response times / High latency">
+    **Symptoms**: Messages take a long time to generate
+    
+    **Possible Causes & Solutions**:
+    
+    **1. Enable Lambda SnapStart** (if in supported region):
+    ```json
+    {
+      "enableLambdaSnapStart": true
+    }
+    ```
+    This improves cold start times significantly.
+    
+    **2. Model selection**:
+    - Larger models (e.g., Claude Opus) are slower than smaller models (e.g., Nova Lite)
+    - Consider using faster models for time-sensitive applications
+    
+    **3. RAG overhead**:
+    - Knowledge Base searches add latency
+    - Consider disabling RAG for simple conversational bots
+    
+    **4. Cross-region inference**:
+    - Check `bedrockRegion` matches deployment region
+    - Enable cross-region inference if needed:
+    ```json
+    {
+      "enableBedrockCrossRegionInference": true
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Out of memory errors during migration">
+    **Error**: Migration script fails with OOM (Out of Memory) errors
+    
+    **Cause**: Large data volumes loaded into memory during migration.
+    
+    **Solution**:
+    
+    **Migrate users individually**:
+    ```bash
+    poetry run python ../docs/migration/migrate_v2_v3.py \
+      --users user-id-1 user-id-2
+    ```
+    
+    **Use a machine with more memory**:
+    - Run migration from EC2 instance with larger memory
+    - Consider using instance types like t3.large or t3.xlarge
+    
+    **Break into smaller batches**:
+    - Migrate 5-10 users at a time
+    - Monitor memory usage during migration
+  </Accordion>
+</AccordionGroup>
+
+### API Issues
+
+<AccordionGroup>
+  <Accordion title="Published API returning 403 errors">
+    **Error**: API requests fail with 403 Forbidden
+    
+    **Possible Causes & Solutions**:
+    
+    **1. Missing or invalid API key**:
+    ```bash
+    # Ensure x-api-key header is set
+    curl -X POST https://your-api.execute-api.region.amazonaws.com/prod/chat \
+      -H "x-api-key: your-api-key" \
+      -H "Content-Type: application/json" \
+      -d '{"message": "Hello"}'
+    ```
+    
+    **2. IP address not allowed**:
+    - Check `publishedApiAllowedIpV4AddressRanges` in `cdk.json`
+    - Add your IP to the allowed ranges
+    ```json
+    {
+      "publishedApiAllowedIpV4AddressRanges": ["203.0.113.0/24"],
+      "publishedApiAllowedIpV6AddressRanges": []
+    }
+    ```
+    
+    **3. API key expired or deleted**:
+    - Generate new API key from API Management UI
+    - Update client applications with new key
+  </Accordion>
+  
+  <Accordion title="API requests timing out">
+    **Error**: Requests exceed 30 second timeout
+    
+    **Cause**: API Gateway has a 30-second timeout limit.
+    
+    **Solution**:
+    Published APIs use asynchronous processing with SQS:
+    
+    1. Send initial request - receives job ID
+    2. Poll status endpoint with job ID
+    3. Retrieve results when complete
+    
+    See [API Specification](https://aws-samples.github.io/bedrock-chat) for details on asynchronous API usage.
+  </Accordion>
+</AccordionGroup>
+
+## Data and Migration Issues
+
+<AccordionGroup>
+  <Accordion title="Migration script fails to verify data">
+    **Error**: Verification step shows missing or incorrect data
+    
+    **Solution**:
+    
+    **Run dry-run first**:
+    ```bash
+    poetry run python ../docs/migration/migrate_v2_v3.py --dry-run
+    ```
+    Review the dry-run report for potential issues.
+    
+    **Check migration report**:
+    - Review the generated report file in detail
+    - Look for specific error messages
+    - Identify which bots or conversations failed
+    
+    **Re-run for specific users**:
+    ```bash
+    poetry run python ../docs/migration/migrate_v2_v3.py \
+      --users failed-user-id
+    ```
+    
+    **Manual bot recreation**:
+    If migration fails for specific bots, recreate them manually using your pre-migration documentation.
+  </Accordion>
+  
+  <Accordion title="DynamoDB backup fails">
+    **Error**: Cannot create backup of DynamoDB table
+    
+    **Possible Causes & Solutions**:
+    
+    **1. Insufficient IAM permissions**:
+    ```json
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateBackup",
+        "dynamodb:DescribeBackup"
+      ],
+      "Resource": "arn:aws:dynamodb:region:account-id:table/table-name"
+    }
+    ```
+    
+    **2. Too many backups**:
+    - DynamoDB has limits on number of backups
+    - Delete old backups before creating new ones
+    
+    **3. Table doesn't exist**:
+    - Verify table name is correct
+    - Check you're in the correct region
+  </Accordion>
+  
+  <Accordion title="Conversation history lost after migration">
+    **Error**: Users report missing conversation history
+    
+    **Investigation steps**:
+    
+    **Check DynamoDB directly**:
+    ```bash
+    aws dynamodb scan \
+      --table-name YOUR_CONVERSATION_TABLE \
+      --filter-expression "PK = :pk" \
+      --expression-attribute-values '{":pk": {"S": "USER#user-id"}}' \
+      --max-items 10
+    ```
+    
+    **Restore from backup**:
+    If data is confirmed missing:
+    ```bash
+    aws dynamodb restore-table-from-backup \
+      --target-table-name RestoredTable \
+      --backup-arn YOUR_BACKUP_ARN
+    ```
+    
+    Then manually migrate the restored data.
+  </Accordion>
+</AccordionGroup>
+
+## Monitoring and Debugging
+
+### CloudWatch Logs
+
+Key log groups to monitor:
+
+```bash
+# Lambda function logs
+/aws/lambda/BedrockChatStack-BackendApi...
+
+# Step Functions logs
+/aws/states/EmbeddingStateMachine
+
+# API Gateway logs
+/aws/apigateway/BedrockChatStack...
+```
+
+### Useful CloudWatch Insights Queries
+
+**Find errors in Lambda logs**:
+```sql
+fields @timestamp, @message
+| filter @message like /ERROR/
+| sort @timestamp desc
+| limit 100
+```
+
+**Track API request latency**:
+```sql
+fields @timestamp, @duration
+| filter @type = "REPORT"
+| stats avg(@duration), max(@duration), min(@duration)
+```
+
+### DynamoDB Monitoring
+
+**Check table size and item count**:
+```bash
+aws dynamodb describe-table \
+  --table-name YOUR_TABLE_NAME \
+  --query "Table.[TableSizeBytes,ItemCount]"
+```
+
+**Monitor read/write capacity**:
+- Navigate to AWS Console > DynamoDB > Tables
+- Select your table
+- Check "Metrics" tab for throttling events
+
+## Getting Additional Help
+
+If you can't resolve your issue:
+
+1. **Check GitHub Issues**: [Bedrock Chat Issues](https://github.com/aws-samples/bedrock-chat/issues)
+2. **Review Documentation**: Refer to specific feature documentation
+3. **AWS Support**: For production issues, contact AWS Support
+4. **Community**: Engage with the Bedrock Chat community on GitHub
+
+### Reporting Issues
+
+When reporting an issue, include:
+
+- Bedrock Chat version
+- AWS region
+- Error messages (sanitized)
+- CloudWatch log excerpts
+- Steps to reproduce
+- Configuration (sanitize sensitive values)
+
+## Preventive Measures
+
+### Regular Maintenance
+
+- **Backup Schedule**: Set up regular DynamoDB backups
+- **Update Regularly**: Keep Bedrock Chat updated to latest stable version
+- **Monitor Costs**: Review AWS Cost Explorer regularly
+- **Review Logs**: Periodically check CloudWatch for warnings
+
+### Best Practices
+
+- **Test in Dev First**: Always test updates in a development environment
+- **Document Changes**: Keep track of configuration modifications
+- **User Communication**: Notify users before scheduled maintenance
+- **Capacity Planning**: Monitor usage trends and plan capacity accordingly

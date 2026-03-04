@@ -1,0 +1,498 @@
+---
+title: AI Agents with ReAct
+description: Enable bots to use tools and perform complex tasks autonomously
+---
+
+Agents transform your bots from conversational assistants into autonomous problem-solvers. Using the ReAct (Reasoning + Acting) framework, agents can break down complex tasks, use tools, and iteratively work toward solutions.
+
+## What is ReAct?
+
+ReAct is an agent framework that combines reasoning and actions:
+
+1. **Thought**: Agent analyzes the current situation
+2. **Action**: Agent decides on and executes a tool
+3. **Observation**: Agent reviews the tool's output
+4. **Repeat**: Continue until the task is complete
+
+This iterative process allows agents to:
+- Handle multi-step tasks
+- Recover from errors
+- Adapt to dynamic situations
+- Provide transparent reasoning
+
+<Note>
+Bedrock Chat implements agents using [Strands Agents](https://strandsagents.com/), an open-source SDK with a model-driven approach supporting multiple providers including Amazon Bedrock.
+</Note>
+
+## Built-in Tools
+
+Bedrock Chat includes several pre-built tools:
+
+<CardGroup cols={2}>
+  <Card title="Internet Search" icon="globe">
+    Search the web using DuckDuckGo or Firecrawl. Returns summarized results with citations.
+  </Card>
+  
+  <Card title="Knowledge Search" icon="book">
+    Query the bot's knowledge base for relevant information from uploaded documents.
+  </Card>
+  
+  <Card title="Calculator" icon="calculator">
+    Perform mathematical calculations safely. Supports basic and advanced operations.
+  </Card>
+  
+  <Card title="Excel Editor" icon="file-excel">
+    Read and manipulate Excel files. Useful for data analysis tasks.
+  </Card>
+  
+  <Card title="Simple List" icon="list">
+    Manage lists and structured data. Create, update, and query list items.
+  </Card>
+  
+  <Card title="Bedrock Agent" icon="aws">
+    Integrate with existing Amazon Bedrock Agents for complex workflows.
+  </Card>
+</CardGroup>
+
+## Enabling Agent Functionality
+
+To enable agents for a custom bot:
+
+1. Create or edit a bot
+2. Navigate to the **Agent** section
+3. Toggle on desired tools
+4. Configure tool-specific settings (if needed)
+5. Save changes
+
+The bot now has access to selected tools during conversations.
+
+## Tool Configuration
+
+### Internet Search
+
+Configure search behavior:
+
+```python
+{
+  "tool_type": "internet",
+  "name": "internet_search",
+  "description": "Search the internet for information",
+  "search_engine": "duckduckgo",  # or "firecrawl"
+  "firecrawl_config": {
+    "api_key": "<encrypted>",
+    "max_results": 10
+  }
+}
+```
+
+<Accordion title="Search Engine Comparison">
+**DuckDuckGo**:
+- Free, no API key required
+- Good general web search
+- Basic content extraction
+- Time-based filtering (day, week, month, year)
+
+**Firecrawl**:
+- Requires API key (stored in AWS Secrets Manager)
+- Advanced content parsing
+- Better structured data extraction
+- Configurable result count
+- Fallback to DuckDuckGo if no results
+</Accordion>
+
+The tool automatically:
+- Summarizes search results using Claude Haiku
+- Includes source citations
+- Returns structured data for the agent
+
+### Bedrock Agent Integration
+
+Connect to an existing Bedrock Agent:
+
+```python
+{
+  "tool_type": "bedrock_agent",
+  "name": "my_bedrock_agent",
+  "description": "Custom business workflow agent",
+  "bedrockAgentConfig": {
+    "agent_id": "AGENT123",
+    "alias_id": "TSTALIASID"
+  }
+}
+```
+
+Use cases:
+- Complex business workflows
+- Integration with enterprise systems
+- Multi-step approval processes
+- Custom tool suites
+
+### Plain Tools
+
+Simple tools without additional configuration:
+
+```python
+{
+  "tool_type": "plain",
+  "name": "calculator",
+  "description": "Perform mathematical calculations"
+}
+```
+
+## Agent Execution Flow
+
+When a user sends a message to an agent-enabled bot:
+
+```
+User Query → Agent Reasoning → Tool Selection → Tool Execution
+                  ↓                                    ↓
+              Thought                             Observation
+                  ↓                                    ↓
+              Is task complete? ←─────────────────────┘
+                  ↓
+               Yes: Final Response
+               No: Continue loop
+```
+
+### Example: Multi-Step Task
+
+**User**: "What's the weather in Paris and convert 20°C to Fahrenheit?"
+
+1. **Thought**: I need to search for Paris weather and do a calculation
+2. **Action**: Use internet_search for Paris weather
+3. **Observation**: Current temperature is 20°C
+4. **Thought**: Now convert 20°C to Fahrenheit
+5. **Action**: Use calculator: (20 * 9/5) + 32
+6. **Observation**: Result is 68°F
+7. **Final Response**: "The weather in Paris is currently 20°C (68°F)..."
+
+## Creating Custom Tools
+
+Develop your own tools using the Strands SDK:
+
+### Basic Tool Structure
+
+```python
+from strands import tool
+from app.repositories.models.custom_bot import BotModel
+
+def create_my_tool(bot: BotModel | None = None):
+    """Create custom tool with bot context closure."""
+    
+    @tool
+    def my_custom_tool(param1: str, param2: int) -> dict:
+        """
+        Brief description of what this tool does.
+        
+        Args:
+            param1: Description of first parameter
+            param2: Description of second parameter
+            
+        Returns:
+            dict: Result in Strands format
+        """
+        try:
+            # Your tool logic here
+            result = do_something(param1, param2)
+            
+            return {
+                "toolUseId": "placeholder",
+                "status": "success",
+                "content": [{"json": result}]  # or {"text": "..."}
+            }
+        except Exception as e:
+            return {
+                "toolUseId": "placeholder",
+                "status": "error",
+                "content": [{"text": f"Error: {str(e)}"}]
+            }
+    
+    return my_custom_tool
+```
+
+### Tool Development Guidelines
+
+<CardGroup cols={2}>
+  <Card title="Clear Docstrings" icon="file-lines">
+    The LLM uses your docstring to decide when to use the tool. Be specific and clear.
+  </Card>
+  
+  <Card title="Type Hints" icon="code">
+    Use proper type hints. Strands automatically generates tool specs from them.
+  </Card>
+  
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Always handle errors gracefully and return informative error messages.
+  </Card>
+  
+  <Card title="Bot Context" icon="robot">
+    Use closure pattern to access bot configuration if needed.
+  </Card>
+</CardGroup>
+
+### Return Format
+
+All tools must return a dictionary with:
+
+```python
+{
+    "toolUseId": "placeholder",  # Replaced by Strands
+    "status": "success" | "error",
+    "content": [
+        {"text": "Simple message"}  # For text responses
+        # OR
+        {"json": {"key": "value"}}  # For structured data
+    ]
+}
+```
+
+- Use `{"text": "..."}` for simple messages
+- Use `{"json": data}` for complex structured data
+
+### Example: BMI Calculator
+
+```python
+from strands import tool
+from app.repositories.models.custom_bot import BotModel
+
+def create_bmi_tool(bot: BotModel | None = None):
+    """Create BMI calculation tool with bot context closure."""
+    
+    @tool
+    def calculate_bmi(height: float, weight: float) -> dict:
+        """
+        Calculate the Body Mass Index (BMI) from height and weight.
+        
+        Args:
+            height: Height in centimeters (cm). e.g. 170.0
+            weight: Weight in kilograms (kg). e.g. 70.0
+            
+        Returns:
+            dict: BMI calculation result in Strands format
+        """
+        try:
+            if height <= 0 or weight <= 0:
+                return {
+                    "toolUseId": "placeholder",
+                    "status": "error",
+                    "content": [{"text": "Height and weight must be positive"}]
+                }
+            
+            height_m = height / 100
+            bmi = weight / (height_m ** 2)
+            
+            category = (
+                "Underweight" if bmi < 18.5 else
+                "Normal" if bmi < 25 else
+                "Overweight" if bmi < 30 else
+                "Obese"
+            )
+            
+            return {
+                "toolUseId": "placeholder",
+                "status": "success",
+                "content": [{
+                    "json": {
+                        "bmi": round(bmi, 1),
+                        "category": category,
+                        "height_cm": height,
+                        "weight_kg": weight
+                    }
+                }]
+            }
+        except Exception as e:
+            return {
+                "toolUseId": "placeholder",
+                "status": "error",
+                "content": [{"text": f"BMI calculation error: {str(e)}"}]
+            }
+    
+    return calculate_bmi
+```
+
+### Registering Custom Tools
+
+1. Place your tool in `backend/app/strands_integration/tools/`
+2. Edit `backend/app/strands_integration/utils.py`:
+
+```python
+def get_strands_registered_tools(bot: BotModel | None) -> list:
+    """Get all registered Strands tools."""
+    from .tools.my_tool import create_my_tool
+    
+    return [
+        create_internet_search_tool(bot),
+        create_calculator_tool(bot),
+        create_my_tool(bot),  # Add your tool
+        # ... other tools
+    ]
+```
+
+3. (Optional) Add UI labels in `frontend/src/i18n/en/index.ts`:
+
+```typescript
+agent: {
+  tools: {
+    my_custom_tool: {
+      name: "My Custom Tool",
+      description: "User-friendly description for the UI"
+    }
+  }
+}
+```
+
+4. Deploy: `npx cdk deploy`
+
+<Note>
+The UI labels are optional. If not provided, the tool name and description from your function will be used.
+</Note>
+
+## Agent Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Tool Selection" icon="hand-pointer">
+    Enable only tools the bot needs. Too many tools can confuse the agent and slow execution.
+  </Card>
+  
+  <Card title="Clear Instructions" icon="file-lines">
+    Provide clear bot instructions about when and how to use tools.
+  </Card>
+  
+  <Card title="Error Messages" icon="circle-exclamation">
+    Return informative error messages to help the agent recover and try alternative approaches.
+  </Card>
+  
+  <Card title="Structured Data" icon="table">
+    Use JSON return format for complex data the agent needs to process further.
+  </Card>
+</CardGroup>
+
+## Real-World Use Cases
+
+<Accordion title="Text-to-SQL Agent">
+**Tools**: Database query tool, schema inspector
+
+**Flow**:
+1. User asks: "What were total sales last quarter?"
+2. Agent inspects database schema
+3. Agent generates SQL query
+4. Agent executes query
+5. Agent formats results for user
+</Accordion>
+
+<Accordion title="Research Assistant">
+**Tools**: Internet search, knowledge search, calculator
+
+**Flow**:
+1. User asks: "Compare market share of top 3 cloud providers"
+2. Agent searches web for recent data
+3. Agent searches internal knowledge base
+4. Agent calculates percentages
+5. Agent compiles comprehensive report
+</Accordion>
+
+<Accordion title="Data Analysis Bot">
+**Tools**: Excel editor, calculator, internet search
+
+**Flow**:
+1. User uploads sales data Excel file
+2. Agent reads and analyzes data
+3. Agent calculates trends and metrics
+4. Agent searches for industry benchmarks
+5. Agent provides insights with context
+</Accordion>
+
+## Monitoring Agent Execution
+
+During agent execution, users see:
+
+- **Thinking indicator**: Agent is reasoning
+- **Tool usage**: Which tool is being used
+- **Tool results**: Output from tools (if configured)
+- **Progress updates**: Multi-step task progress
+
+Administrators can view:
+- Tool usage statistics
+- Success/failure rates
+- Average execution time
+- Token consumption per tool
+
+## Troubleshooting
+
+<Accordion title="Agent Not Using Tools">
+Check:
+- Tools are enabled in bot configuration
+- Bot instructions mention tool availability
+- Task actually requires tool usage
+- Tool descriptions are clear and relevant
+</Accordion>
+
+<Accordion title="Tool Execution Errors">
+- Review tool error messages
+- Check tool implementation for bugs
+- Verify required credentials (e.g., Firecrawl API key)
+- Ensure bot has necessary permissions
+</Accordion>
+
+<Accordion title="Slow Agent Responses">
+- Reduce number of enabled tools
+- Optimize tool execution time
+- Use faster models (Haiku) for agent reasoning
+- Limit tool result size
+</Accordion>
+
+## Advanced Topics
+
+### Combining Agents with Knowledge
+
+Agents can search both:
+- External knowledge (internet)
+- Internal knowledge (bot's knowledge base)
+
+This enables powerful hybrid retrieval:
+
+```python
+{
+  "agent": {
+    "tools": [
+      {"tool_type": "internet", "name": "internet_search"},
+      {"tool_type": "plain", "name": "knowledge_search"}
+    ]
+  },
+  "knowledge": {
+    "filenames": ["internal_docs.pdf"]
+  }
+}
+```
+
+### Tool Chaining
+
+Agents automatically chain tools:
+
+**Example**: "Find recent AI news and summarize in bullet points"
+
+1. internet_search → Get recent articles
+2. (Agent reasoning) → Extract key points
+3. (Response generation) → Format as bullets
+
+No explicit chaining required—the agent figures it out.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Bots" href="/features/custom-bots" icon="robot">
+    Create bots with agent capabilities
+  </Card>
+  
+  <Card title="Knowledge Bases" href="/features/knowledge-bases" icon="book">
+    Combine agents with RAG for powerful bots
+  </Card>
+  
+  <Card title="Bot Store" href="/features/bot-store" icon="store">
+    Share agent-powered bots with others
+  </Card>
+  
+  <Card title="API Publishing" href="/features/api-publishing" icon="code">
+    Create APIs with agent capabilities
+  </Card>
+</CardGroup>

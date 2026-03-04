@@ -1,97 +1,220 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: Welcome to Bedrock Chat
+description: A multilingual generative AI chat platform powered by Amazon Bedrock
+mode: custom
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#FF9900] via-[#FF8800] to-[#CC7A00] dark:from-[#1a1d27] dark:via-[#0f1117] dark:to-[#0a0d12] py-20">
+  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-20"></div>
+  
+  <div className="relative max-w-6xl mx-auto px-6 sm:px-8">
+    <div className="text-center">
+      <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+        Bedrock Chat
+      </h1>
+      <p className="text-lg sm:text-xl text-white/90 max-w-3xl mx-auto mb-10">
+        A multilingual generative AI chat platform powered by Amazon Bedrock. Build custom bots with RAG, share them in a marketplace, and automate tasks with intelligent agents.
+      </p>
+      <div className="flex flex-wrap gap-4 justify-center">
+        <a 
+          href="/quickstart"
+          className="inline-flex items-center px-6 py-3 rounded-lg bg-white text-[#FF9900] font-semibold hover:bg-white/90 transition-colors shadow-lg"
+        >
+          Get Started
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </a>
+        <a 
+          href="/architecture"
+          className="inline-flex items-center px-6 py-3 rounded-lg border-2 border-white/30 bg-white/10 text-white font-semibold hover:bg-white/20 transition-colors backdrop-blur-sm"
+        >
+          View Architecture
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Get started in minutes
+    </h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+      Deploy Bedrock Chat to your AWS account and start chatting with AI models in just a few steps
+    </p>
+  </div>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+  <Steps>
+    <Step title="Enable Bedrock model access">
+      In the AWS Console, navigate to Amazon Bedrock in the us-east-1 region and enable model access for the models you want to use (Claude, Nova, Llama, Mistral).
+      
+      ```bash
+      # Models are accessed via Amazon Bedrock API
+      # No API keys needed - uses AWS IAM for authentication
+      ```
+    </Step>
+    
+    <Step title="Deploy via CloudShell">
+      Open AWS CloudShell in your desired region and run the deployment script:
+      
+      ```bash
+      git clone https://github.com/aws-samples/bedrock-chat.git
+      cd bedrock-chat
+      chmod +x bin.sh
+      ./bin.sh
+      ```
+      
+      <Note>
+        Deployment takes approximately 35 minutes. You'll receive a CloudFront URL when complete.
+      </Note>
+    </Step>
+    
+    <Step title="Sign up and start chatting">
+      Access your CloudFront URL, create an account, and start chatting with AI models. Create custom bots with your own knowledge bases, or explore shared bots in the bot store.
+      
+      <Tip>
+        For production deployments, configure IP restrictions and disable self-registration using the `--ipv4-ranges` and `--disable-self-register` parameters.
+      </Tip>
+    </Step>
+  </Steps>
+</div>
 
-## Make it yours
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Explore by feature
+    </h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400">
+      Learn about Bedrock Chat's powerful capabilities
+    </p>
+  </div>
 
-Design a docs site that looks great and empowers your users.
+  <CardGroup cols={3}>
+    <Card title="Chat with AI models" icon="comments" href="/features/chat">
+      Multi-model chat interface supporting Claude, Nova, Llama, and Mistral models via Amazon Bedrock
+    </Card>
+    <Card title="Custom bots with RAG" icon="robot" href="/features/custom-bots">
+      Create specialized bots with custom instructions and knowledge bases using retrieval-augmented generation
+    </Card>
+    <Card title="Bot marketplace" icon="store" href="/features/bot-store">
+      Share and discover bots in a centralized marketplace with fine-grained permissions
+    </Card>
+    <Card title="AI agents" icon="wand-magic-sparkles" href="/features/agents">
+      Automate complex tasks with ReAct agents that can use tools and break down multi-step queries
+    </Card>
+    <Card title="Publish bot APIs" icon="cloud" href="/features/api-publishing">
+      Deploy your custom bots as standalone REST APIs with dedicated endpoints
+    </Card>
+    <Card title="Admin controls" icon="user-shield" href="/administration/overview">
+      Manage users, mark essential bots, and analyze usage across your organization
+    </Card>
+  </CardGroup>
+</div>
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Deployment options
+    </h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400">
+      Choose the deployment method that fits your workflow
+    </p>
+  </div>
 
-## Create beautiful pages
+  <CardGroup cols={2}>
+    <Card title="CloudShell deployment" icon="terminal" href="/deployment/cloudshell">
+      One-command deployment from AWS CloudShell with guided parameter setup
+    </Card>
+    <Card title="CDK deployment" icon="code" href="/deployment/cdk">
+      Advanced deployment with AWS CDK for custom configurations and multi-environment setups
+    </Card>
+  </CardGroup>
+</div>
 
-Everything you need to create world-class documentation.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Key capabilities
+    </h2>
+  </div>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-gray-50 dark:bg-[#1a1d27]">
+      <div className="w-10 h-10 rounded-lg bg-[#FF9900]/10 dark:bg-[#FF9900]/20 flex items-center justify-center mb-4">
+        <svg className="w-6 h-6 text-[#FF9900]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        Serverless architecture
+      </h3>
+      <p className="text-gray-600 dark:text-gray-400">
+        Built on AWS managed services including Lambda, DynamoDB, and CloudFront for automatic scaling and zero infrastructure management
+      </p>
+    </div>
 
-## Need inspiration?
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-gray-50 dark:bg-[#1a1d27]">
+      <div className="w-10 h-10 rounded-lg bg-[#FF9900]/10 dark:bg-[#FF9900]/20 flex items-center justify-center mb-4">
+        <svg className="w-6 h-6 text-[#FF9900]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        Enterprise security
+      </h3>
+      <p className="text-gray-600 dark:text-gray-400">
+        Multiple authentication providers, IP restrictions via AWS WAF, and data isolation with Amazon Cognito user pools
+      </p>
+    </div>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-gray-50 dark:bg-[#1a1d27]">
+      <div className="w-10 h-10 rounded-lg bg-[#FF9900]/10 dark:bg-[#FF9900]/20 flex items-center justify-center mb-4">
+        <svg className="w-6 h-6 text-[#FF9900]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+        </svg>
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        Multi-tenant knowledge bases
+      </h3>
+      <p className="text-gray-600 dark:text-gray-400">
+        Share OpenSearch Serverless collections across multiple bots to optimize costs while maintaining data isolation
+      </p>
+    </div>
+
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-gray-50 dark:bg-[#1a1d27]">
+      <div className="w-10 h-10 rounded-lg bg-[#FF9900]/10 dark:bg-[#FF9900]/20 flex items-center justify-center mb-4">
+        <svg className="w-6 h-6 text-[#FF9900]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+        </svg>
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        Multilingual support
+      </h3>
+      <p className="text-gray-600 dark:text-gray-400">
+        Automatic language detection with i18next supporting 15+ languages including English, Japanese, Chinese, Korean, and more
+      </p>
+    </div>
+  </div>
+</div>
+
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div className="rounded-2xl bg-gradient-to-br from-[#FF9900] to-[#CC7A00] dark:from-[#1a1d27] dark:to-[#0f1117] p-8 sm:p-12 text-center border border-[#FF9900]/20 dark:border-[#27272a]">
+    <h2 className="text-3xl font-bold text-white dark:text-white mb-4">
+      Ready to deploy?
+    </h2>
+    <p className="text-lg text-white/90 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
+      Get Bedrock Chat running in your AWS account in under 40 minutes
+    </p>
+    <a 
+      href="/quickstart"
+      className="inline-flex items-center px-8 py-4 rounded-lg bg-white text-[#FF9900] font-semibold hover:bg-white/90 transition-colors shadow-lg"
+    >
+      Start deployment
+      <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+      </svg>
+    </a>
+  </div>
+</div>

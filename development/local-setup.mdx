@@ -1,0 +1,149 @@
+---
+title: Local Development Setup
+description: Set up your local development environment for Bedrock Chat
+---
+
+## Prerequisites
+
+Before starting local development, you need to:
+
+1. Deploy AWS resources using CDK (see [Deploy using CDK](/deployment/cdk-deployment))
+2. Have Node.js and Python 3 installed on your machine
+3. Have AWS CLI configured with appropriate credentials
+
+## Backend Development
+
+### Environment Setup
+
+The backend is written in Python with [FastAPI](https://fastapi.tiangolo.com/).
+
+1. Create a Poetry environment:
+
+```bash
+cd backend
+python3 -m venv .venv  # Optional (If you don't want to install poetry on your env)
+source .venv/bin/activate  # Optional
+pip install poetry
+poetry install
+```
+
+### Configure Environment Variables
+
+Set the following environment variables based on your CDK deployment outputs:
+
+```bash
+export CONVERSATION_TABLE_NAME=BedrockChatStack-DatabaseConversationTablexxxx
+export BOT_TABLE_NAME=BedrockChatStack-DatabaseBotTablexxxx
+export ACCOUNT=yyyy
+export REGION=ap-northeast-1
+export BEDROCK_REGION=us-east-1
+export DOCUMENT_BUCKET=bedrockchatstack-documentbucketxxxxxxx
+export LARGE_MESSAGE_BUCKET=bedrockchatstack-largemessagebucketxxx
+export USER_POOL_ID=xxxxxxxxx
+export CLIENT_ID=xxxxxxxxx
+export OPENSEARCH_DOMAIN_ENDPOINT=https://abcdefghijklmnopqrst.aa-region-1.aoss.amazonaws.com
+```
+
+### Configure OpenSearch Permissions
+
+Local development requires OpenSearch data access permissions. Configure this in either `cdk/cdk.json` or `cdk/parameter.ts`:
+
+```json
+{
+  "devAccessIamRoleArn": "arn:aws:iam::123456789012:role/<role name>"
+}
+```
+
+This grants the following permissions:
+
+**For the OpenSearch Collection:**
+- `aoss:DescribeCollectionItems`
+- `aoss:CreateCollectionItems`
+- `aoss:DeleteCollectionItems`
+- `aoss:UpdateCollectionItems`
+
+**For the index:**
+- `aoss:DescribeIndex`
+- `aoss:ReadDocument`
+- `aoss:WriteDocument`
+- `aoss:CreateIndex`
+- `aoss:DeleteIndex`
+- `aoss:UpdateIndex`
+
+### Launch Local Server
+
+Start the FastAPI server:
+
+```bash
+poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Access the API documentation:
+- [Swagger UI](http://127.0.0.1:8000/docs)
+- [Redoc](http://127.0.0.1:8000/redoc)
+
+### Run Unit Tests
+
+```bash
+poetry run python tests/test_bedrock.py
+poetry run python tests/test_repositories/test_conversation.py
+```
+
+## Frontend Development
+
+You can locally modify and launch the frontend using AWS resources (API Gateway, Cognito, etc.) deployed with CDK.
+
+### Setup Steps
+
+1. Deploy the AWS environment using CDK
+2. Copy the environment template:
+
+```bash
+cp frontend/.env.template frontend/.env.local
+```
+
+3. Fill in `.env.local` with values from your CDK deployment output (e.g., `BedrockChatStack.AuthUserPoolClientIdXXXXX`)
+
+4. Start the development server:
+
+```bash
+cd frontend && npm ci && npm run dev
+```
+
+## Setup Pre-commit Hook (Recommended)
+
+We use [Lefthook](https://github.com/evilmartians/lefthook) for automatic type-checking and linting at commit time. While optional, it's recommended for an efficient development experience.
+
+### Install Lefthook
+
+Refer to the [official installation guide](https://github.com/evilmartians/lefthook#install).
+
+For macOS with Homebrew:
+
+```bash
+brew install lefthook
+```
+
+### Install Poetry for Python Linting
+
+Required for `mypy` and `black` linting:
+
+```bash
+cd backend
+python3 -m venv .venv  # Optional
+source .venv/bin/activate  # Optional
+pip install poetry
+poetry install
+```
+
+### Create Pre-commit Hook
+
+Run this command from the project root directory:
+
+```bash
+lefthook install
+```
+
+### Code Formatting
+
+While not enforced, we recommend using [Prettier](https://prettier.io/) for TypeScript formatting to prevent unnecessary diffs during code reviews.

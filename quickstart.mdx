@@ -1,80 +1,319 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Deployment
+description: Deploy Bedrock Chat to your AWS account in under 40 minutes
 ---
 
-## Get started in three steps
+## Prerequisites
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+Before deploying Bedrock Chat, ensure you have:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="AWS Account" icon="aws">
+    An AWS account with appropriate permissions to create resources
+  </Card>
+  <Card title="Bedrock Model Access" icon="key">
+    Model access enabled in Amazon Bedrock console
+  </Card>
+  <Card title="Supported Region" icon="globe">
+    Deploy in a region where OpenSearch Serverless is available
+  </Card>
+  <Card title="CloudShell Access" icon="terminal">
+    Ability to open AWS CloudShell in your deployment region
+  </Card>
 </CardGroup>
 
+## Supported Regions
+
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Deploy Bedrock Chat in a region where [OpenSearch Serverless and Ingestion APIs are available](https://docs.aws.amazon.com/general/latest/gr/opensearch-service.html) if you want to use bots and knowledge bases.
 </Note>
+
+Supported regions (as of August 2025):
+
+- **US**: us-east-1, us-east-2, us-west-1, us-west-2
+- **Asia Pacific**: ap-south-1, ap-northeast-1, ap-northeast-2, ap-southeast-1, ap-southeast-2
+- **Europe**: eu-central-1, eu-west-1, eu-west-2, eu-south-2, eu-north-1
+- **Other**: ca-central-1, sa-east-1
+
+For the `bedrock-region` parameter, choose a region [where Bedrock is available](https://docs.aws.amazon.com/general/latest/gr/bedrock.html).
+
+## Deployment Steps
+
+<Steps>
+  <Step title="Enable Bedrock Model Access">
+    In the **us-east-1** region, navigate to [Bedrock Model Access](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess):
+    
+    1. Click **Manage model access**
+    2. Check all models you wish to use:
+       - **Claude Models**: claude-v4-opus, claude-v3.7-sonnet, claude-v3.5-sonnet, claude-v3.5-haiku
+       - **Amazon Nova**: amazon-nova-pro, amazon-nova-lite, amazon-nova-micro
+       - **Llama**: llama3-3-70b-instruct, llama3-2-90b-instruct
+       - **Mistral**: mistral-large-2, mixtral-8x7b-instruct
+       - **DeepSeek**: deepseek-r1
+    3. Click **Save changes**
+    
+    <img
+      src="https://raw.githubusercontent.com/aws-samples/bedrock-chat/v3/docs/imgs/model_screenshot.png"
+      alt="Bedrock Model Access"
+    />
+  </Step>
+  
+  <Step title="Open CloudShell">
+    Open [AWS CloudShell](https://console.aws.amazon.com/cloudshell/home) in the region where you want to deploy Bedrock Chat.
+    
+    <Tip>
+      CloudShell provides a pre-configured environment with AWS CLI, Git, and other tools already installed.
+    </Tip>
+  </Step>
+  
+  <Step title="Run Deployment Script">
+    Execute the following commands in CloudShell:
+    
+    ```bash
+    git clone https://github.com/aws-samples/bedrock-chat.git
+    cd bedrock-chat
+    chmod +x bin.sh
+    ./bin.sh
+    ```
+    
+    When prompted, confirm you're ready to deploy v3.x by entering `y`.
+  </Step>
+  
+  <Step title="Wait for Deployment">
+    The deployment takes approximately **35 minutes**. The script will:
+    
+    1. Create a CloudFormation stack with CodeBuild project
+    2. Start CodeBuild to deploy CDK stacks
+    3. Provision all AWS resources
+    4. Build and deploy the frontend application
+    
+    <Note>
+      You can monitor progress in the [CloudFormation console](https://console.aws.amazon.com/cloudformation/).
+    </Note>
+  </Step>
+  
+  <Step title="Access Your Application">
+    Once deployment completes, you'll receive a Frontend URL:
+    
+    ```
+    Frontend URL: https://xxxxxxxxx.cloudfront.net
+    ```
+    
+    <img
+      src="https://raw.githubusercontent.com/aws-samples/bedrock-chat/v3/docs/imgs/signin.png"
+      alt="Sign-in Screen"
+    />
+    
+    The sign-up screen will appear where you can register with your email and log in.
+  </Step>
+</Steps>
+
+## Deployment Parameters
+
+You can customize your deployment with optional parameters:
+
+### Security Parameters
+
+```bash
+./bin.sh \
+  --disable-self-register \
+  --ipv4-ranges "192.0.2.0/25,192.0.2.128/25" \
+  --ipv6-ranges "2001:db8:1:2::/64" \
+  --allowed-signup-email-domains "example.com,anotherexample.com"
+```
+
+<ParamField path="--disable-self-register" type="flag">
+  Disable self-registration (default: enabled). Users must be created via Cognito console.
+</ParamField>
+
+<ParamField path="--ipv4-ranges" type="string">
+  Comma-separated list of allowed IPv4 CIDR ranges. Default allows all IPv4 addresses.
+</ParamField>
+
+<ParamField path="--ipv6-ranges" type="string">
+  Comma-separated list of allowed IPv6 CIDR ranges. Default allows all IPv6 addresses.
+</ParamField>
+
+<ParamField path="--disable-ipv6" type="flag">
+  Disable connections over IPv6 (default: enabled).
+</ParamField>
+
+<ParamField path="--allowed-signup-email-domains" type="string">
+  Comma-separated list of allowed email domains for sign-up (e.g., "company.com").
+</ParamField>
+
+### Configuration Parameters
+
+<ParamField path="--bedrock-region" type="string" default="us-east-1">
+  Region where Bedrock is available. See [supported regions](https://docs.aws.amazon.com/general/latest/gr/bedrock.html).
+</ParamField>
+
+<ParamField path="--enable-lambda-snapstart" type="flag">
+  Enable [Lambda SnapStart](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html) for faster cold starts (default: disabled).
+</ParamField>
+
+<ParamField path="--version" type="string" default="v3">
+  Specific version to deploy (e.g., "v3.0.0").
+</ParamField>
+
+<ParamField path="--repo-url" type="string">
+  Custom repository URL if you've forked Bedrock Chat.
+</ParamField>
+
+### Advanced Configuration with CDK Override
+
+Use `--cdk-json-override` to override any CDK context values:
+
+```bash
+./bin.sh --cdk-json-override '{
+  "context": {
+    "selfSignUpEnabled": false,
+    "enableLambdaSnapStart": true,
+    "allowedIpV4AddressRanges": ["192.168.1.0/24"],
+    "allowedCountries": ["US", "CA"],
+    "allowedSignUpEmailDomains": ["example.com"],
+    "globalAvailableModels": [
+      "claude-v3.7-sonnet",
+      "claude-v3.5-sonnet",
+      "amazon-nova-pro",
+      "amazon-nova-lite",
+      "llama3-3-70b-instruct"
+    ]
+  }
+}'
+```
+
+Available override options:
+
+- `selfSignUpEnabled` - Enable/disable self-registration
+- `enableLambdaSnapStart` - Enable Lambda SnapStart
+- `allowedIpV4AddressRanges` / `allowedIpV6AddressRanges` - IP restrictions
+- `allowedCountries` - [ISO-3166 country codes](https://en.wikipedia.org/wiki/List_of_ISO_3166_country_codes) for geo-restrictions
+- `allowedSignUpEmailDomains` - Restrict sign-up email domains
+- `bedrockRegion` - Bedrock API region
+- `enableRagReplicas` - Enable/disable RAG database replicas
+- `enableBedrockCrossRegionInference` - Enable cross-region inference
+- `globalAvailableModels` - List of model IDs to enable (empty list enables all)
+- `logoPath` - Custom logo path under `frontend/public/`
+
+<Note>
+  Override values merge with existing `cdk.json` configuration during deployment. Override values take precedence.
+</Note>
+
+## Production Deployment Recommendations
+
+<Warning>
+  Without parameters, this deployment allows **anyone who knows the URL to sign up**. For production:
+  
+  1. **Add IP restrictions** using `--ipv4-ranges` and `--ipv6-ranges`
+  2. **Disable self-registration** with `--disable-self-register`
+  3. **Restrict email domains** with `--allowed-signup-email-domains`
+  4. **Configure geo-restrictions** if needed using `--cdk-json-override`
+</Warning>
+
+### Example Production Deployment
+
+```bash
+./bin.sh \
+  --disable-self-register \
+  --ipv4-ranges "203.0.113.0/24" \
+  --allowed-signup-email-domains "mycompany.com" \
+  --bedrock-region "us-west-2" \
+  --enable-lambda-snapstart \
+  --version "v3.0.0"
+```
+
+## Deployment Outputs
+
+After successful deployment, you'll receive:
+
+<ResponseField name="Frontend URL" type="string">
+  CloudFront distribution URL for accessing the application
+</ResponseField>
+
+<ResponseField name="CloudFront URL" type="string">
+  Direct CloudFront domain (without custom domain)
+</ResponseField>
+
+<ResponseField name="Backend API URL" type="string">
+  API Gateway endpoint for backend services
+</ResponseField>
+
+<ResponseField name="User Pool ID" type="string">
+  Amazon Cognito User Pool ID for user management
+</ResponseField>
+
+<ResponseField name="User Pool Client ID" type="string">
+  Cognito App Client ID for authentication
+</ResponseField>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Frontend URL doesn't appear">
+    If the Frontend URL doesn't appear or Bedrock Chat doesn't work:
+    
+    1. Check CloudFormation console for stack errors
+    2. Try deploying a specific stable version: `--version "v3.0.0"`
+    3. Check CodeBuild logs in CloudWatch
+  </Accordion>
+  
+  <Accordion title="Deployment fails in CloudFormation">
+    Common causes:
+    
+    - Insufficient permissions in your AWS account
+    - Service quotas exceeded (e.g., VPC, Lambda functions)
+    - Region doesn't support OpenSearch Serverless
+    - Bedrock model access not enabled
+  </Accordion>
+  
+  <Accordion title="Can't sign up after deployment">
+    If self-registration is disabled or email domain restrictions are active:
+    
+    1. Go to Amazon Cognito console
+    2. Find your User Pool (ID in CloudFormation outputs)
+    3. Manually create users under "Users" tab
+  </Accordion>
+  
+  <Accordion title="Models not appearing in chat">
+    Ensure you've enabled model access in the Bedrock console:
+    
+    1. Navigate to Amazon Bedrock
+    2. Go to "Model access" in the left sidebar
+    3. Request access for desired models
+    4. Wait for access to be granted (usually instant)
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configure Authentication" icon="lock" href="/configuration/authentication">
+    Set up external identity providers (Google, OIDC)
+  </Card>
+  <Card title="Security Settings" icon="shield" href="/configuration/security">
+    Configure WAF rules, IP restrictions, and access controls
+  </Card>
+  <Card title="Create Custom Bots" icon="robot" href="/features/custom-bots">
+    Build your first bot with custom knowledge
+  </Card>
+  <Card title="User Management" icon="users" href="/administration/user-management">
+    Set up user groups and permissions
+  </Card>
+</CardGroup>
+
+## Clean Up
+
+To remove all resources:
+
+```bash
+# Access CloudFormation console
+# Delete stacks in this order:
+# 1. BedrockChatStack
+# 2. FrontendWafStack (in us-east-1 region)
+# 3. CodeBuildForDeploy
+```
+
+<Warning>
+  Deleting stacks will remove all data including conversations, bots, and knowledge bases. Export any important data before deletion.
+</Warning>

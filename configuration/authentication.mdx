@@ -1,0 +1,226 @@
+---
+title: Authentication
+description: Configure authentication providers for Bedrock Chat
+---
+
+Bedrock Chat supports multiple authentication methods through Amazon Cognito, including built-in Cognito user pools, Google OAuth, and custom OIDC providers.
+
+## Amazon Cognito User Pool
+
+By default, Bedrock Chat uses Amazon Cognito User Pool for authentication. Users can sign up and sign in using email addresses.
+
+### Self Sign-Up Configuration
+
+Control whether users can register their own accounts.
+
+<ParamField path="selfSignUpEnabled" type="boolean" default="true">
+  Enable or disable self-registration for new users. When disabled, administrators must create user accounts manually through the Cognito console.
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "selfSignUpEnabled": true
+  }
+}
+```
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  selfSignUpEnabled: false,
+});
+```
+
+### Email Domain Restrictions
+
+Restrict sign-ups to specific email domains.
+
+<ParamField path="allowedSignUpEmailDomains" type="array" default="[]">
+  List of email domains allowed for sign-up. Empty array allows all domains.
+</ParamField>
+
+**Example:**
+```json
+{
+  "context": {
+    "allowedSignUpEmailDomains": ["example.com", "company.org"]
+  }
+}
+```
+
+This restricts sign-ups to users with `@example.com` or `@company.org` email addresses.
+
+### User Pool Domain Prefix
+
+<ParamField path="userPoolDomainPrefix" type="string" default="">
+  Globally unique domain prefix for the Cognito User Pool. Required when using external identity providers.
+</ParamField>
+
+The prefix must be globally unique across all Amazon Cognito users. Include identifiers, project names, or environment names to ensure uniqueness.
+
+### Auto-Join User Groups
+
+<ParamField path="autoJoinUserGroups" type="array" default='["CreatingBotAllowed"]'>
+  List of Cognito user groups that new users automatically join upon registration.
+</ParamField>
+
+Available groups:
+- **CreatingBotAllowed**: Grants permission to create custom bots
+- **Admin**: Provides administrative access
+- **PublishAllowed**: Enables bot API publishing
+
+**Example:**
+```json
+{
+  "context": {
+    "autoJoinUserGroups": ["CreatingBotAllowed", "PublishAllowed"]
+  }
+}
+```
+
+## Google OAuth Integration
+
+Integrate Google as an external identity provider.
+
+### Step 1: Create Google OAuth 2.0 Client
+
+1. Go to the [Google Developer Console](https://console.developers.google.com/)
+2. Create a new project or select an existing one
+3. Navigate to **Credentials** > **Create Credentials** > **OAuth client ID**
+4. Configure the consent screen if prompted
+5. Select **Web application** as the application type
+6. Leave the redirect URI blank initially (will be configured after deployment)
+7. Note the **Client ID** and **Client Secret**
+
+### Step 2: Store Credentials in AWS Secrets Manager
+
+1. Open AWS Secrets Manager in the console
+2. Choose **Store a new secret**
+3. Select **Other type of secrets**
+4. Add the following key-value pairs:
+   - Key: `clientId`, Value: Your Google Client ID
+   - Key: `clientSecret`, Value: Your Google Client Secret
+5. Name the secret (e.g., `googleOAuthCredentials`)
+6. Store the secret
+
+<Warning>
+The key names must exactly match `clientId` and `clientSecret`.
+</Warning>
+
+### Step 3: Configure Identity Provider
+
+<ParamField path="identityProviders" type="array" default="[]">
+  List of external identity provider configurations.
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "identityProviders": [
+      {
+        "service": "google",
+        "secretName": "googleOAuthCredentials"
+      }
+    ],
+    "userPoolDomainPrefix": "my-bedrock-chat"
+  }
+}
+```
+
+### Step 4: Deploy and Update Redirect URI
+
+After deploying, retrieve the `AuthApprovedRedirectURI` from CloudFormation outputs and add it to your Google OAuth client's authorized redirect URIs.
+
+## Custom OIDC Provider
+
+Integrate any OIDC-compliant identity provider.
+
+### Step 1: Obtain OIDC Credentials
+
+Follow your OIDC provider's procedures to obtain:
+- Client ID
+- Client Secret
+- Issuer URL
+
+### Step 2: Store Credentials in AWS Secrets Manager
+
+1. Open AWS Secrets Manager
+2. Choose **Store a new secret**
+3. Select **Other type of secrets**
+4. Add the following key-value pairs:
+   - Key: `clientId`, Value: Your OIDC Client ID
+   - Key: `clientSecret`, Value: Your OIDC Client Secret
+   - Key: `issuerUrl`, Value: Your OIDC Issuer URL
+5. Name the secret (e.g., `oidcCredentials`)
+6. Store the secret
+
+<Warning>
+The key names must exactly match `clientId`, `clientSecret`, and `issuerUrl`.
+</Warning>
+
+### Step 3: Configure Identity Provider
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "identityProviders": [
+      {
+        "service": "oidc",
+        "serviceName": "MyCompanySSO",
+        "secretName": "oidcCredentials"
+      }
+    ],
+    "userPoolDomainPrefix": "my-bedrock-chat"
+  }
+}
+```
+
+<ParamField path="identityProviders[].service" type="string" required>
+  Identity provider type. Use `"google"` or `"oidc"`.
+</ParamField>
+
+<ParamField path="identityProviders[].serviceName" type="string">
+  Display name for custom OIDC provider. Only used when service is `"oidc"`.
+</ParamField>
+
+<ParamField path="identityProviders[].secretName" type="string" required>
+  Name of the AWS Secrets Manager secret containing provider credentials.
+</ParamField>
+
+### Step 4: Deploy and Update Redirect URI
+
+After deployment, retrieve the `AuthApprovedRedirectURI` from CloudFormation outputs and configure it in your OIDC provider.
+
+## Token Configuration
+
+<ParamField path="tokenValidMinutes" type="number" default="30">
+  ID token validity period in minutes. Determines how often users need to refresh their authentication.
+</ParamField>
+
+**Example:**
+```json
+{
+  "context": {
+    "tokenValidMinutes": 60
+  }
+}
+```
+
+## Deployment Commands
+
+Deploy with authentication configuration:
+
+```bash
+cd cdk
+npx cdk deploy --require-approval never --all
+```
+
+Or use the deployment script with options:
+
+```bash
+./bin.sh --disable-self-register --allowed-signup-email-domains "example.com"
+```

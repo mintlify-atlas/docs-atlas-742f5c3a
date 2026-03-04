@@ -1,0 +1,214 @@
+---
+title: Creating Custom Agent Tools
+description: Learn how to develop custom tools for Bedrock Chat agents using Strands SDK
+---
+
+## Overview
+
+Bedrock Chat implements agents using the [ReAct (Reasoning + Acting)](https://www.promptingguide.ai/techniques/react) approach, powered by [Strands Agents](https://strandsagents.com/), an open-source SDK for building AI agents.
+
+You can develop custom tools to extend the capabilities of your agents using Python decorators and the Strands framework.
+
+## About Strands Tools
+
+Strands provides a simple `@tool` decorator that transforms regular Python functions into AI agent tools. The decorator automatically extracts information from your function's docstring and type hints to create tool specifications that the LLM can understand and use.
+
+For detailed information, see the [Python Tools documentation](https://strandsagents.com/latest/documentation/docs/user-guide/concepts/tools/python-tools/).
+
+## Basic Tool Creation
+
+Create a function decorated with `@tool` from Strands:
+
+```python
+from strands import tool
+
+@tool
+def calculator(expression: str) -> dict:
+    """
+    Perform mathematical calculations safely.
+
+    Args:
+        expression: Mathematical expression to evaluate (e.g., "2+2", "10*5", "sqrt(16)")
+
+    Returns:
+        dict: Result in Strands format with toolUseId, status, and content
+    """
+    try:
+        # Your calculation logic here
+        result = eval(expression)  # Note: Use safe evaluation in production
+        return {
+            "toolUseId": "placeholder",
+            "status": "success",
+            "content": [{"text": str(result)}]
+        }
+    except Exception as e:
+        return {
+            "toolUseId": "placeholder",
+            "status": "error",
+            "content": [{"text": f"Error: {str(e)}"}]
+        }
+```
+
+## Tools with Bot Context (Closure Pattern)
+
+To access bot information (BotModel), use a closure pattern that captures the bot context:
+
+```python
+from strands import tool
+from app.repositories.models.custom_bot import BotModel
+
+def create_calculator_tool(bot: BotModel | None = None):
+    """Create calculator tool with bot context closure."""
+
+    @tool
+    def calculator(expression: str) -> dict:
+        """
+        Perform mathematical calculations safely.
+
+        Args:
+            expression: Mathematical expression to evaluate (e.g., "2+2", "10*5", "sqrt(16)")
+
+        Returns:
+            dict: Result in Strands format with toolUseId, status, and content
+        """
+        # Access bot context within the tool
+        if bot:
+            print(f"Tool used by bot: {bot.id}")
+
+        try:
+            result = eval(expression)  # Use safe evaluation in production
+            return {
+                "toolUseId": "placeholder",
+                "status": "success",
+                "content": [{"text": str(result)}]
+            }
+        except Exception as e:
+            return {
+                "toolUseId": "placeholder",
+                "status": "error",
+                "content": [{"text": f"Error: {str(e)}"}]
+            }
+
+    return calculator
+```
+
+## Complete Example: BMI Calculator
+
+Here's a complete example demonstrating best practices:
+
+```python
+from strands import tool
+from app.repositories.models.custom_bot import BotModel
+
+
+def create_bmi_tool(bot: BotModel | None = None):
+    """Create BMI calculation tool with bot context closure."""
+
+    @tool
+    def calculate_bmi(height: float, weight: float) -> dict:
+        """
+        Calculate the Body Mass Index (BMI) from height and weight.
+
+        Args:
+            height: Height in centimeters (cm). e.g. 170.0
+            weight: Weight in kilograms (kg). e.g. 70.0
+
+        Returns:
+            dict: BMI calculation result in Strands format
+        """
+        # Access bot context if needed
+        if bot:
+            print(f"BMI calculation for bot: {bot.id}")
+
+        try:
+            if height <= 0 or weight <= 0:
+                return {
+                    "toolUseId": "placeholder",
+                    "status": "error",
+                    "content": [{"text": "Error: Height and weight must be positive numbers."}]
+                }
+
+            height_in_meters = height / 100
+            bmi = weight / (height_in_meters**2)
+            bmi_rounded = round(bmi, 1)
+
+            if bmi < 18.5:
+                category = "Underweight"
+            elif bmi < 25:
+                category = "Normal weight"
+            elif bmi < 30:
+                category = "Overweight"
+            else:
+                category = "Obese"
+
+            result_data = {
+                "bmi": bmi_rounded,
+                "category": category,
+                "height_cm": height,
+                "weight_kg": weight
+            }
+
+            return {
+                "toolUseId": "placeholder",
+                "status": "success",
+                "content": [{"json": result_data}]
+            }
+
+        except Exception as e:
+            return {
+                "toolUseId": "placeholder",
+                "status": "error",
+                "content": [{"text": f"BMI calculation error: {str(e)}"}]
+            }
+
+    return calculate_bmi
+```
+
+## Return Format Requirements
+
+All Strands tools must return a dictionary with this structure:
+
+```python
+{
+    "toolUseId": "placeholder",  # Will be replaced by Strands
+    "status": "success" | "error",
+    "content": [
+        {"text": "Simple text response"} |
+        {"json": {"key": "Complex data object"}}
+    ]
+}
+```
+
+**Format Guidelines:**
+- Use `{"text": "message"}` for simple text responses
+- Use `{"json": data}` for complex data that should be preserved as structured information
+- Always set `status` to either `"success"` or `"error"`
+
+## Implementation Guidelines
+
+### Documentation
+
+The function name and docstring are used when the LLM considers which tool to use. The docstring is embedded in the prompt, so describe the tool's purpose and parameters precisely.
+
+### File Location
+
+Place your implementation file in the `backend/app/strands_integration/tools/` directory.
+
+### Registration
+
+Open `backend/app/strands_integration/utils.py` and edit `get_strands_registered_tools` to include your new tool.
+
+### Frontend Labels (Optional)
+
+Add clear names and descriptions for the frontend UI. While optional, this improves UX by providing user-friendly explanations instead of using the technical function names.
+
+1. Edit `frontend/src/i18n/en/index.ts` and add your `name` and `description` under `agent.tools`
+2. Edit other language files (e.g., `ja/index.ts`) as needed
+
+### Deployment
+
+Run `npx cdk deploy` to deploy your changes and make your custom tool available in the custom bot screen.
+
+## Using Custom Tools
+
+Once deployed, users can enable your custom tool in the Agent section of the custom bot screen by toggling the switch next to the tool name. When enabled, the agent can utilize the tool when processing user queries.

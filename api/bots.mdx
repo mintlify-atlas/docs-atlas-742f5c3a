@@ -1,0 +1,618 @@
+---
+title: Bot Management Endpoints
+description: API endpoints for creating and managing custom bots
+---
+
+## Overview
+
+Bot management endpoints allow you to create custom bots with specific instructions, knowledge bases, tools, and generation parameters.
+
+## Create Bot
+
+<api-endpoint>
+  <api-endpoint-heading method="POST" path="/bot" />
+  <api-endpoint-description>
+    Create a new private owned bot.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  Unique bot identifier
+</ParamField>
+
+<ParamField body="title" type="string" required>
+  Bot display name
+</ParamField>
+
+<ParamField body="instruction" type="string" required>
+  System instruction for the bot's behavior
+</ParamField>
+
+<ParamField body="description" type="string">
+  Bot description shown to users
+</ParamField>
+
+<ParamField body="generation_params" type="object">
+  Model generation parameters
+  
+  <Expandable title="generation_params properties">
+    <ParamField body="max_tokens" type="integer">
+      Maximum tokens to generate
+    </ParamField>
+    
+    <ParamField body="top_k" type="integer">
+      Top-K sampling parameter
+    </ParamField>
+    
+    <ParamField body="top_p" type="float">
+      Top-P (nucleus) sampling parameter
+    </ParamField>
+    
+    <ParamField body="temperature" type="float">
+      Temperature for randomness (0.0-1.0)
+    </ParamField>
+    
+    <ParamField body="stop_sequences" type="array">
+      Array of strings to stop generation
+    </ParamField>
+    
+    <ParamField body="reasoning_params" type="object">
+      Reasoning parameters for reasoning-enabled models
+      
+      <Expandable title="reasoning_params properties">
+        <ParamField body="budget_tokens" type="integer">
+          Token budget for reasoning
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="agent" type="object">
+  Agent configuration with tools
+  
+  <Expandable title="agent properties">
+    <ParamField body="tools" type="array" required>
+      Array of tool configurations
+      
+      <Expandable title="tool properties">
+        <ParamField body="tool_type" type="string" required>
+          Type of tool: `"plain"`, `"internet"`, or `"bedrock_agent"`
+        </ParamField>
+        
+        <ParamField body="name" type="string" required>
+          Tool name
+        </ParamField>
+        
+        <ParamField body="description" type="string" required>
+          Tool description
+        </ParamField>
+        
+        <ParamField body="search_engine" type="string">
+          Search engine for internet tools: `"duckduckgo"` or `"firecrawl"`
+        </ParamField>
+        
+        <ParamField body="firecrawl_config" type="object">
+          Configuration for Firecrawl search
+          
+          <Expandable title="firecrawl_config properties">
+            <ParamField body="api_key" type="string" required>
+              Firecrawl API key
+            </ParamField>
+            
+            <ParamField body="max_results" type="integer" default="10">
+              Maximum results (1-100)
+            </ParamField>
+          </Expandable>
+        </ParamField>
+        
+        <ParamField body="bedrockAgentConfig" type="object">
+          Configuration for Bedrock Agent tools
+          
+          <Expandable title="bedrockAgentConfig properties">
+            <ParamField body="agent_id" type="string" required>
+              Bedrock Agent ID
+            </ParamField>
+            
+            <ParamField body="alias_id" type="string" required>
+              Bedrock Agent alias ID
+            </ParamField>
+          </Expandable>
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="knowledge" type="object">
+  Knowledge base configuration
+  
+  <Expandable title="knowledge properties">
+    <ParamField body="source_urls" type="array">
+      Array of source URLs to crawl
+    </ParamField>
+    
+    <ParamField body="sitemap_urls" type="array">
+      Array of sitemap URLs
+    </ParamField>
+    
+    <ParamField body="filenames" type="array">
+      Array of uploaded filenames
+    </ParamField>
+    
+    <ParamField body="s3_urls" type="array">
+      Array of S3 URLs (must end with `/`)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="display_retrieved_chunks" type="boolean" required>
+  Whether to show retrieved chunks to users
+</ParamField>
+
+<ParamField body="prompt_caching_enabled" type="boolean" default="true">
+  Enable prompt caching for faster responses
+</ParamField>
+
+<ParamField body="conversation_quick_starters" type="array">
+  Array of conversation starter suggestions
+  
+  <Expandable title="quick starter properties">
+    <ParamField body="title" type="string" required>
+      Quick starter title
+    </ParamField>
+    
+    <ParamField body="example" type="string" required>
+      Example message text
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="bedrock_knowledge_base" type="object">
+  Bedrock Knowledge Base configuration
+</ParamField>
+
+<ParamField body="bedrock_guardrails" type="object">
+  Bedrock Guardrails configuration
+</ParamField>
+
+<ParamField body="active_models" type="object" required>
+  Object specifying which models are active for this bot (model names with underscores as keys, boolean values)
+</ParamField>
+
+### Example Request
+
+```json
+{
+  "id": "tech-support-bot",
+  "title": "Tech Support Assistant",
+  "instruction": "You are a helpful technical support assistant. Answer questions clearly and provide step-by-step solutions.",
+  "description": "AI assistant for technical support queries",
+  "generation_params": {
+    "max_tokens": 2000,
+    "top_k": 250,
+    "top_p": 0.9,
+    "temperature": 0.7,
+    "stop_sequences": [],
+    "reasoning_params": {
+      "budget_tokens": 1000
+    }
+  },
+  "agent": {
+    "tools": [
+      {
+        "tool_type": "internet",
+        "name": "web_search",
+        "description": "Search the web for current information",
+        "search_engine": "duckduckgo"
+      }
+    ]
+  },
+  "knowledge": {
+    "source_urls": ["https://docs.example.com"],
+    "sitemap_urls": [],
+    "filenames": [],
+    "s3_urls": []
+  },
+  "display_retrieved_chunks": true,
+  "prompt_caching_enabled": true,
+  "conversation_quick_starters": [
+    {
+      "title": "Common Issues",
+      "example": "What are the most common technical issues?"
+    }
+  ],
+  "bedrock_knowledge_base": null,
+  "bedrock_guardrails": null,
+  "active_models": {
+    "claude_v3_5_sonnet": true,
+    "claude_v4_opus": true
+  }
+}
+```
+
+---
+
+## Update Bot
+
+<api-endpoint>
+  <api-endpoint-heading method="PATCH" path="/bot/{bot_id}" />
+  <api-endpoint-description>
+    Modify an owned bot's title, instruction, description, and other settings.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID to update
+</ParamField>
+
+### Request Body
+
+Same structure as create bot, except:
+
+<ParamField body="knowledge" type="object">
+  Knowledge diff for updates
+  
+  <Expandable title="knowledge properties">
+    <ParamField body="source_urls" type="array">
+      New array of source URLs
+    </ParamField>
+    
+    <ParamField body="sitemap_urls" type="array">
+      New array of sitemap URLs
+    </ParamField>
+    
+    <ParamField body="s3_urls" type="array">
+      New array of S3 URLs
+    </ParamField>
+    
+    <ParamField body="added_filenames" type="array">
+      Filenames to add
+    </ParamField>
+    
+    <ParamField body="deleted_filenames" type="array">
+      Filenames to remove
+    </ParamField>
+    
+    <ParamField body="unchanged_filenames" type="array">
+      Filenames to keep
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+---
+
+## Get All Bots
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/bot" />
+  <api-endpoint-description>
+    Get all bots, ordered by last_used_time (descending).
+  </api-endpoint-description>
+</api-endpoint>
+
+### Query Parameters
+
+<ParamField query="kind" type="string" default="private">
+  Filter by bot kind: `"private"` or `"mixed"`
+</ParamField>
+
+<ParamField query="starred" type="boolean" default="false">
+  Filter to only starred bots
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Limit number of results
+</ParamField>
+
+### Response
+
+Returns an array of bot metadata:
+
+<ResponseField name="id" type="string">
+  Bot identifier
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Bot title
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Bot description
+</ResponseField>
+
+<ResponseField name="create_time" type="float">
+  Unix timestamp of creation
+</ResponseField>
+
+<ResponseField name="last_used_time" type="float">
+  Unix timestamp of last use
+</ResponseField>
+
+<ResponseField name="is_starred" type="boolean">
+  Whether the bot is starred
+</ResponseField>
+
+<ResponseField name="owned" type="boolean">
+  Whether the current user owns the bot
+</ResponseField>
+
+<ResponseField name="available" type="boolean">
+  Whether the bot is available (can be false if original bot is removed)
+</ResponseField>
+
+<ResponseField name="sync_status" type="string">
+  Knowledge base sync status: `"QUEUED"`, `"RUNNING"`, `"SUCCEEDED"`, `"FAILED"`, etc.
+</ResponseField>
+
+<ResponseField name="shared_scope" type="string">
+  Sharing scope: `"private"`, `"partial"`, or `"all"`
+</ResponseField>
+
+<ResponseField name="shared_status" type="string">
+  Shared status: `"private"`, `"shared"`, or `"pinned@xxx"`
+</ResponseField>
+
+---
+
+## Get Pinned Bots
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/bot/pinned" />
+  <api-endpoint-description>
+    Get all pinned bots. Currently only supports pinned public bots.
+  </api-endpoint-description>
+</api-endpoint>
+
+---
+
+## Get Private Bot
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/bot/private/{bot_id}" />
+  <api-endpoint-description>
+    Get detailed information about a private bot you own.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID to retrieve
+</ParamField>
+
+### Response
+
+Returns complete bot configuration including all settings, knowledge base, agent tools, generation parameters, and sync status.
+
+---
+
+## Get Bot Summary
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/bot/summary/{bot_id}" />
+  <api-endpoint-description>
+    Get a summary of bot information.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Bot identifier
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Bot title
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Bot description
+</ResponseField>
+
+<ResponseField name="has_agent" type="boolean">
+  Whether the bot has agent tools configured
+</ResponseField>
+
+<ResponseField name="has_knowledge" type="boolean">
+  Whether the bot has a knowledge base
+</ResponseField>
+
+<ResponseField name="conversation_quick_starters" type="array">
+  Array of quick starter suggestions
+</ResponseField>
+
+<ResponseField name="active_models" type="object">
+  Active models for this bot
+</ResponseField>
+
+---
+
+## Delete Bot
+
+<api-endpoint>
+  <api-endpoint-heading method="DELETE" path="/bot/{bot_id}" />
+  <api-endpoint-description>
+    Delete a bot. For owned bots, deletes completely. For shared bots, removes the alias.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID to delete
+</ParamField>
+
+---
+
+## Update Bot Star Status
+
+<api-endpoint>
+  <api-endpoint-heading method="PATCH" path="/bot/{bot_id}/starred" />
+  <api-endpoint-description>
+    Star or unstar a bot.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="starred" type="boolean" required>
+  True to star, false to unstar
+</ParamField>
+
+---
+
+## Update Bot Visibility
+
+<api-endpoint>
+  <api-endpoint-heading method="PATCH" path="/bot/{bot_id}/visibility" />
+  <api-endpoint-description>
+    Change bot sharing visibility settings.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID
+</ParamField>
+
+### Request Body
+
+One of three visibility types:
+
+**Private:**
+
+<ParamField body="target_shared_scope" type="string" required>
+  Must be `"private"`
+</ParamField>
+
+**Partial (specific users/groups):**
+
+<ParamField body="target_shared_scope" type="string" required>
+  Must be `"partial"`
+</ParamField>
+
+<ParamField body="target_allowed_user_ids" type="array" required>
+  Array of user IDs to share with
+</ParamField>
+
+<ParamField body="target_allowed_group_ids" type="array" required>
+  Array of group IDs to share with
+</ParamField>
+
+**All (public):**
+
+<ParamField body="target_shared_scope" type="string" required>
+  Must be `"all"`
+</ParamField>
+
+---
+
+## Get Presigned URL for Upload
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/bot/{bot_id}/presigned-url" />
+  <api-endpoint-description>
+    Get a presigned URL for uploading files to the bot's knowledge base.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="filename" type="string" required>
+  Name of the file to upload
+</ParamField>
+
+<ParamField query="contentType" type="string" required>
+  MIME type of the file
+</ParamField>
+
+### Response
+
+<ResponseField name="url" type="string">
+  Presigned S3 URL for upload
+</ResponseField>
+
+---
+
+## Delete Uploaded File
+
+<api-endpoint>
+  <api-endpoint-heading method="DELETE" path="/bot/{bot_id}/uploaded-file" />
+  <api-endpoint-description>
+    Delete an uploaded file from the bot's knowledge base.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="filename" type="string" required>
+  Name of the file to delete
+</ParamField>
+
+---
+
+## Remove from Recently Used
+
+<api-endpoint>
+  <api-endpoint-heading method="DELETE" path="/bot/{bot_id}/recently-used" />
+  <api-endpoint-description>
+    Remove a bot from the recently used bots history.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID
+</ParamField>
+
+---
+
+## Get Available Tools
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/bot/{bot_id}/agent/available-tools" />
+  <api-endpoint-description>
+    Get list of available tools that can be configured for a bot's agent.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID
+</ParamField>
+
+### Response
+
+Returns an array of available tool configurations with their types, names, and descriptions.

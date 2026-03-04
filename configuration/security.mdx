@@ -1,0 +1,237 @@
+---
+title: Security Settings
+description: Configure WAF, IP restrictions, and security policies for Bedrock Chat
+---
+
+Bedrock Chat provides comprehensive security features including AWS WAF for IP-based access control, geographic restrictions, and IPv6 support.
+
+## AWS WAF Configuration
+
+AWS WAF (Web Application Firewall) protects your Bedrock Chat deployment from common web exploits.
+
+### Frontend WAF (CloudFront)
+
+Controls access to the CloudFront distribution serving the frontend application.
+
+<ParamField path="enableFrontendWaf" type="boolean" default="true">
+  Enable or disable AWS WAF for the CloudFront distribution. When enabled, creates a WebACL in the us-east-1 region.
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "enableFrontendWaf": true
+  }
+}
+```
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  enableFrontendWaf: false,
+});
+```
+
+<Note>
+Frontend WAF must be created in us-east-1 region (CloudFront requirement). If your organization restricts creating resources outside the primary region, set this to `false`. Authentication and application controls continue to work without the WAF.
+</Note>
+
+### Published API WAF
+
+Controls access to published bot APIs (regional scope).
+
+<ParamField path="publishedApiAllowedIpV4AddressRanges" type="array" default='["0.0.0.0/1", "128.0.0.0/1"]'>
+  IPv4 CIDR ranges allowed to access published bot APIs.
+</ParamField>
+
+<ParamField path="publishedApiAllowedIpV6AddressRanges" type="array" default='["0000:0000:0000:0000:0000:0000:0000:0000/1", "8000:0000:0000:0000:0000:0000:0000:0000/1"]'>
+  IPv6 CIDR ranges allowed to access published bot APIs.
+</ParamField>
+
+**Example:**
+```json
+{
+  "context": {
+    "publishedApiAllowedIpV4AddressRanges": ["203.0.113.0/24"],
+    "publishedApiAllowedIpV6AddressRanges": ["2001:db8::/32"]
+  }
+}
+```
+
+## IP Address Restrictions
+
+Restrict access to Bedrock Chat by IP address ranges.
+
+### IPv4 Restrictions
+
+<ParamField path="allowedIpV4AddressRanges" type="array" default='["0.0.0.0/1", "128.0.0.0/1"]'>
+  List of IPv4 CIDR ranges allowed to access the application. Default allows all IPv4 addresses.
+</ParamField>
+
+**Example - Restrict to corporate network:**
+```json
+{
+  "context": {
+    "allowedIpV4AddressRanges": ["192.168.1.0/24", "10.0.0.0/8"]
+  }
+}
+```
+
+### IPv6 Restrictions
+
+<ParamField path="allowedIpV6AddressRanges" type="array" default='["0000:0000:0000:0000:0000:0000:0000:0000/1", "8000:0000:0000:0000:0000:0000:0000:0000/1"]'>
+  List of IPv6 CIDR ranges allowed to access the application. Default allows all IPv6 addresses.
+</ParamField>
+
+**Example:**
+```json
+{
+  "context": {
+    "allowedIpV6AddressRanges": ["2001:db8:1:2::/64", "2001:db8:1:3::/64"]
+  }
+}
+```
+
+### IPv6 Support
+
+<ParamField path="enableFrontendIpv6" type="boolean" default="true">
+  Enable or disable IPv6 support for the CloudFront distribution. When disabled, the application is only accessible via IPv4.
+</ParamField>
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  enableFrontendIpv6: false,
+});
+```
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "enableFrontendIpv6": false
+  }
+}
+```
+
+## Geographic Restrictions
+
+Restrict access based on the geographic location of users.
+
+<ParamField path="allowedCountries" type="array" default="[]">
+  List of ISO 3166-1 alpha-2 country codes allowed to access the application. Empty array allows all countries.
+</ParamField>
+
+**Example - Restrict to New Zealand and Australia:**
+```json
+{
+  "context": {
+    "allowedCountries": ["NZ", "AU"]
+  }
+}
+```
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  allowedCountries: ["US", "CA"],
+});
+```
+
+Use [ISO 3166-1 alpha-2 country codes](https://en.wikipedia.org/wiki/List_of_ISO_3166_country_codes) for country identification.
+
+## Deployment Script Security Options
+
+When deploying with `bin.sh`, you can specify security options:
+
+```bash
+./bin.sh \
+  --disable-self-register \
+  --ipv4-ranges "192.0.2.0/25,192.0.2.128/25" \
+  --ipv6-ranges "2001:db8:1:2::/64,2001:db8:1:3::/64" \
+  --disable-ipv6 \
+  --allowed-signup-email-domains "example.com"
+```
+
+### Available Security Flags
+
+<ParamField path="--disable-self-register" type="flag">
+  Disable self-registration. Users must be created manually through Cognito.
+</ParamField>
+
+<ParamField path="--ipv4-ranges" type="string">
+  Comma-separated list of allowed IPv4 CIDR ranges.
+</ParamField>
+
+<ParamField path="--ipv6-ranges" type="string">
+  Comma-separated list of allowed IPv6 CIDR ranges.
+</ParamField>
+
+<ParamField path="--disable-ipv6" type="flag">
+  Disable IPv6 connections entirely.
+</ParamField>
+
+<ParamField path="--allowed-signup-email-domains" type="string">
+  Comma-separated list of allowed email domains for sign-up.
+</ParamField>
+
+## Production Security Recommendations
+
+<Warning>
+Without security restrictions, anyone who knows the URL can access your deployment. For production environments:
+
+1. **Enable IP restrictions**: Use `allowedIpV4AddressRanges` and `allowedIpV6AddressRanges` to limit access to known networks
+2. **Disable self sign-up**: Set `selfSignUpEnabled: false` to require manual user creation
+3. **Restrict email domains**: Use `allowedSignUpEmailDomains` to limit sign-ups to company domains
+4. **Enable geographic restrictions**: Use `allowedCountries` to restrict access by country
+5. **Keep WAF enabled**: Unless technically required, keep `enableFrontendWaf: true`
+</Warning>
+
+## Custom Domain Configuration
+
+Configure a custom domain with SSL/TLS certificate.
+
+<ParamField path="alternateDomainName" type="string" default="">
+  Custom domain name for the CloudFront distribution (e.g., `chat.example.com`).
+</ParamField>
+
+<ParamField path="hostedZoneId" type="string" default="">
+  Route 53 hosted zone ID where DNS records will be created.
+</ParamField>
+
+**Example:**
+```json
+{
+  "context": {
+    "alternateDomainName": "chat.example.com",
+    "hostedZoneId": "Z0123456789ABCDEF"
+  }
+}
+```
+
+When configured, the deployment automatically:
+- Creates an ACM certificate with DNS validation in us-east-1
+- Creates DNS records in Route 53
+- Configures CloudFront to use the custom domain
+
+<Note>
+The domain must be managed by Route 53 in your AWS account. Find the hosted zone ID in the Route 53 console.
+</Note>
+
+## CDK JSON Override
+
+Override security settings during deployment without modifying configuration files:
+
+```bash
+./bin.sh --cdk-json-override '{
+  "context": {
+    "selfSignUpEnabled": false,
+    "allowedIpV4AddressRanges": ["192.168.1.0/24"],
+    "allowedCountries": ["US", "CA"],
+    "allowedSignUpEmailDomains": ["example.com"]
+  }
+}'
+```
+
+Override values take precedence over values in `cdk.json`.

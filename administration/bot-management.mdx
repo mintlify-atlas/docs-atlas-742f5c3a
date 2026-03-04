@@ -1,0 +1,221 @@
+---
+title: Bot Management
+description: Managing bots, essential bot features, and bot analytics
+---
+
+Administrators have comprehensive control over bot management, including the ability to feature essential bots, monitor usage, and configure bot visibility.
+
+## Essential Bots
+
+Public bots can be marked as "Essential" by administrators. These bots are featured prominently in the bot store, making them easily accessible to all users.
+
+### What are Essential Bots?
+
+Essential bots are organizational bots that administrators want all users to utilize. They appear in a dedicated "Essential" section of the bot store.
+
+### Example Use Cases
+
+- **HR Assistant Bot**: Helps employees with HR-related questions and tasks
+- **IT Support Bot**: Provides assistance for internal technical issues and account management
+- **Internal Policy Guide Bot**: Answers frequently asked questions about attendance rules, security policies, and internal regulations
+- **New Employee Onboarding Bot**: Guides new hires through procedures and system usage on their first day
+- **Benefits Information Bot**: Explains company benefit programs and welfare services
+
+### Marking Bots as Essential
+
+Administrators can pin/unpin bots using the admin API:
+
+#### Pin a Bot (Mark as Essential)
+
+```
+PATCH /admin/bot/{bot_id}/pushed
+```
+
+Request body:
+```json
+{
+  "to_pinned": true,
+  "order": 1
+}
+```
+
+The `order` field (3-digit integer) determines the display order of essential bots in the bot store. Lower numbers appear first.
+
+#### Unpin a Bot
+
+```
+PATCH /admin/bot/{bot_id}/pushed
+```
+
+Request body:
+```json
+{
+  "to_pinned": false
+}
+```
+
+### Pinned Bot Status
+
+Pinned bots have a special status format: `pinned@xxx` where `xxx` is a 3-digit order number (e.g., `pinned@001`, `pinned@015`).
+
+Possible bot status values:
+- `unshared` - Private bot
+- `shared` - Publicly shared bot
+- `pinned@001` - Essential bot with order 1
+
+## Viewing Bots
+
+### Get All Published Bots
+
+View all bots that have been published as APIs:
+
+```
+GET /admin/published-bots?limit=1000&next_token={token}
+```
+
+Response includes:
+- Bot ID, title, and description
+- Published stack name and datetime
+- Owner user ID
+- Shared scope and status
+
+### Get All Public Bots with Usage
+
+View public bots sorted by usage cost:
+
+```
+GET /admin/public-bots?limit=100&start=YYYYMMDDHH&end=YYYYMMDDHH
+```
+
+Parameters:
+- `limit`: Maximum number of bots (must be ≤ 1000)
+- `start`: Start date in format `YYYYMMDDHH`
+- `end`: End date in format `YYYYMMDDHH`
+
+Response sorted by total price in descending order.
+
+### Get Public Bot Details
+
+View detailed information about a specific public bot:
+
+```
+GET /admin/bot/public/{bot_id}
+```
+
+Response includes:
+- Bot configuration (title, instruction, description)
+- Knowledge base settings (source URLs, sitemap URLs, filenames, S3 URLs)
+- Sync status and execution ID
+- Sharing scope and status
+- Allowed Cognito groups and users
+
+## Bot Analytics
+
+### Get Bot Analytics
+
+```
+GET /admin/bots/{bot_id}/analytics?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&days=30
+```
+
+Returns:
+- Total query count
+- Unique user count
+- Average satisfaction score
+- Total cost
+- Daily usage breakdown
+
+### Get Popular Queries
+
+View the most common queries for a bot:
+
+```
+GET /admin/bots/{bot_id}/popular-queries?limit=10&days=30
+```
+
+Returns the top queries with their frequency counts.
+
+### Get Satisfaction Metrics
+
+```
+GET /admin/bots/{bot_id}/satisfaction?days=30
+```
+
+Returns satisfaction ratings and feedback data for the bot.
+
+## Bot Cost Allocation
+
+Track costs associated with specific bots:
+
+```
+GET /admin/costs/bots/{bot_id}?start_period=YYYY-MM&end_period=YYYY-MM
+```
+
+Response includes:
+- Total cost
+- Input and output tokens
+- Number of unique users
+- Cost breakdown by model
+
+## Bot Permissions and Restrictions
+
+### Pinned Bot Restrictions
+
+Bots marked as essential (pinned) have special restrictions:
+
+1. **Cannot be deleted**: Essential bots cannot be removed by their owners
+2. **Scope cannot be narrowed**: Pinned bots cannot have their sharing scope reduced (e.g., from public to private)
+3. **Admin-only modifications**: Only administrators can pin/unpin bots
+
+### Sharing Scopes
+
+Bots can have different sharing scopes:
+
+- `private`: Only visible to the owner
+- `partial`: Shared with specific Cognito groups or users
+- `all`: Publicly available to all users
+
+When a bot is pinned, it must maintain either `partial` or `all` scope.
+
+## Bot Knowledge Base
+
+Administrators can view bot knowledge configurations:
+
+- **Source URLs**: Web pages crawled for knowledge
+- **Sitemap URLs**: Sitemaps for bulk web content
+- **Filenames**: Uploaded document files
+- **S3 URLs**: S3 bucket locations for knowledge data
+
+### Sync Status
+
+Bots have synchronization status for their knowledge bases:
+- `QUEUED`: Waiting to be processed
+- `RUNNING`: Currently syncing
+- `SUCCEEDED`: Successfully synced
+- `FAILED`: Sync failed (check `sync_status_reason`)
+
+## Audit Trail
+
+All bot management actions are logged:
+
+```
+GET /admin/audit-logs/resource/bot/{bot_id}
+```
+
+Returns the complete history of actions performed on a bot, including:
+- Pin/unpin actions
+- Visibility changes
+- Configuration updates
+- Who performed the action and when
+
+## Best Practices
+
+1. **Essential Bot Selection**: Only pin bots that provide value to most users
+2. **Order Management**: Use meaningful order numbers (e.g., 1-10 for high priority, 11-20 for medium)
+3. **Regular Review**: Periodically review essential bots to ensure they remain relevant
+4. **Monitor Usage**: Track analytics to identify underutilized essential bots
+5. **Feedback Loop**: Use satisfaction metrics to improve bot quality
+6. **Cost Control**: Monitor bot costs and optimize expensive bots
+
+<Warning>
+Pinned bots cannot be deleted or have their scope narrowed. Ensure you only pin bots that should remain permanently available.
+</Warning>

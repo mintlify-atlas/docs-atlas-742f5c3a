@@ -1,0 +1,353 @@
+---
+title: Model Configuration
+description: Configure Amazon Bedrock models and inference settings
+---
+
+Bedrock Chat supports multiple foundation models from Amazon Bedrock. Configure which models are available to users and set default model preferences.
+
+## Enable Bedrock Model Access
+
+Before deploying Bedrock Chat, enable model access in Amazon Bedrock:
+
+1. Navigate to the [Bedrock Model Access page](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess) in us-east-1
+2. Click **Manage model access**
+3. Select all models you wish to use
+4. Click **Save changes**
+
+<Warning>
+Without enabling model access in Bedrock, the models will not be available in Bedrock Chat even if configured.
+</Warning>
+
+## Supported Models
+
+Bedrock Chat supports the following foundation models:
+
+### Claude Models (Anthropic)
+
+- `claude-v4-opus`
+- `claude-v4.1-opus`
+- `claude-v4.5-opus`
+- `claude-v4-sonnet`
+- `claude-v4.5-sonnet`
+- `claude-v4.5-haiku`
+- `claude-v3-opus`
+- `claude-v3.5-sonnet`
+- `claude-v3.5-sonnet-v2`
+- `claude-v3.7-sonnet` (supports extended thinking up to 64k tokens)
+- `claude-v3-haiku`
+- `claude-v3.5-haiku`
+
+### Amazon Nova Models
+
+- `amazon-nova-pro`
+- `amazon-nova-lite`
+- `amazon-nova-micro`
+
+### Mistral Models
+
+- `mistral-7b-instruct`
+- `mixtral-8x7b-instruct`
+- `mistral-large`
+- `mistral-large-2`
+
+### DeepSeek Models
+
+- `deepseek-r1`
+
+### Meta Llama Models
+
+- `llama3-3-70b-instruct`
+- `llama3-2-1b-instruct`
+- `llama3-2-3b-instruct`
+- `llama3-2-11b-instruct`
+- `llama3-2-90b-instruct`
+
+### Other Models
+
+- `gpt-oss-20b`
+- `gpt-oss-120b`
+
+## Global Model Configuration
+
+Control which models appear in the UI for all users.
+
+<ParamField path="globalAvailableModels" type="array" default="[]">
+  List of model IDs to enable globally. Empty array enables all models. When set, only specified models appear in dropdown menus.
+</ParamField>
+
+**Configure in cdk.json - Enable all models (default):**
+```json
+{
+  "context": {
+    "globalAvailableModels": []
+  }
+}
+```
+
+**Configure in cdk.json - Restrict to specific models:**
+```json
+{
+  "context": {
+    "globalAvailableModels": [
+      "claude-v3.7-sonnet",
+      "claude-v3.5-sonnet",
+      "amazon-nova-pro",
+      "amazon-nova-lite",
+      "llama3-3-70b-instruct"
+    ]
+  }
+}
+```
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  globalAvailableModels: [
+    "claude-v3.7-sonnet",
+    "claude-v3.5-sonnet",
+    "amazon-nova-pro",
+    "amazon-nova-lite",
+    "llama3-3-70b-instruct",
+  ],
+});
+```
+
+**Deployment script:**
+```bash
+./bin.sh --cdk-json-override '{
+  "context": {
+    "globalAvailableModels": [
+      "claude-v3.7-sonnet",
+      "claude-v3.5-sonnet",
+      "amazon-nova-pro"
+    ]
+  }
+}'
+```
+
+<Note>
+Only models enabled in the Bedrock console AND included in `globalAvailableModels` will be available to users.
+</Note>
+
+## Default Model Selection
+
+Specify which model is pre-selected when users start a new chat.
+
+<ParamField path="defaultModel" type="string" default="claude-v3.7-sonnet">
+  Model ID pre-selected in the chat UI when users start a new conversation.
+</ParamField>
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  defaultModel: "amazon-nova-pro",
+});
+```
+
+<Warning>
+Ensure the `defaultModel` is enabled in Bedrock console and included in `globalAvailableModels` (if specified). Otherwise, users may see an error when starting conversations.
+</Warning>
+
+## Title Generation Model
+
+Specify which model automatically generates conversation titles.
+
+<ParamField path="titleModel" type="string" default="claude-v3-haiku">
+  Model used to generate short conversation titles. Defaults to `defaultModel` if not specified, then falls back to `claude-v3-haiku`.
+</ParamField>
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  titleModel: "amazon-nova-lite", // Cost-optimized for title generation
+});
+```
+
+<Tip>
+Use a smaller, cost-effective model like `claude-v3-haiku`, `amazon-nova-lite`, or `amazon-nova-micro` for title generation to reduce costs without impacting user experience.
+</Tip>
+
+**Example configuration:**
+```typescript
+bedrockChatParams.set("default", {
+  defaultModel: "claude-v3.7-sonnet",     // Premium model for chat
+  titleModel: "amazon-nova-lite",          // Budget model for titles
+  globalAvailableModels: [
+    "claude-v3.7-sonnet",
+    "claude-v3.5-sonnet",
+    "amazon-nova-pro",
+    "amazon-nova-lite",
+  ],
+});
+```
+
+## Bedrock Region Configuration
+
+Specify which AWS region to use for Amazon Bedrock API calls.
+
+<ParamField path="bedrockRegion" type="string" default="us-east-1">
+  AWS region where Amazon Bedrock APIs are available. Must be a region where Bedrock is supported.
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "bedrockRegion": "us-west-2"
+  }
+}
+```
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  bedrockRegion: "us-west-2",
+});
+```
+
+**Deployment script:**
+```bash
+./bin.sh --bedrock-region "us-west-2"
+```
+
+<Note>
+Amazon Bedrock is not available in all AWS regions. Check the [Bedrock documentation](https://docs.aws.amazon.com/general/latest/gr/bedrock.html) for supported regions.
+</Note>
+
+## Cross-Region and Global Inference
+
+Amazon Bedrock can dynamically route inference requests across regions for improved throughput and resilience.
+
+### Global Inference
+
+<ParamField path="enableBedrockGlobalInference" type="boolean" default="true">
+  Enable global inference to route requests to the optimal region worldwide based on latency and availability.
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "enableBedrockGlobalInference": true
+  }
+}
+```
+
+### Cross-Region Inference
+
+<ParamField path="enableBedrockCrossRegionInference" type="boolean" default="true">
+  Enable cross-region inference to route requests within the same geographic area (e.g., within US regions).
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "enableBedrockCrossRegionInference": true
+  }
+}
+```
+
+**Configure both in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  bedrockRegion: "us-east-1",
+  enableBedrockGlobalInference: true,
+  enableBedrockCrossRegionInference: true,
+});
+```
+
+<Note>
+Some AWS Service Control Policies (SCPs) may restrict global or cross-region inference. Configure these settings based on your organization's policies.
+</Note>
+
+## Model Parameters
+
+Users can configure generation parameters for each conversation:
+
+### Temperature
+
+- **Range:** 0 to 1
+- **Step:** 0.05
+- **Default:** 0.6
+- **Purpose:** Controls randomness in responses. Lower values make output more deterministic.
+
+### Max Tokens
+
+- **Range:** 1 to 64,000
+- **Step:** 10
+- **Default:** 2,000
+- **Purpose:** Maximum number of tokens to generate in the response.
+
+<Note>
+Claude 3.7 with extended thinking supports up to 64,000 tokens output.
+</Note>
+
+### Top P
+
+- **Range:** 0 to 1
+- **Step:** 0.001
+- **Default:** 0.999
+- **Purpose:** Nucleus sampling parameter controlling diversity.
+
+### Top K
+
+- **Range:** 0 to 500
+- **Step:** 1
+- **Default:** 128
+- **Purpose:** Limits the number of highest probability tokens to consider.
+
+### Reasoning Budget Tokens
+
+- **Range:** 1,024 to 64,000
+- **Step:** 10
+- **Default:** 1,024
+- **Purpose:** Token budget allocated for reasoning and thinking (Claude extended thinking).
+
+## Multi-Environment Model Configuration
+
+Configure different models for different environments:
+
+```typescript
+// Development - cost-optimized
+bedrockChatParams.set("dev", {
+  bedrockRegion: "us-east-1",
+  defaultModel: "amazon-nova-lite",
+  titleModel: "amazon-nova-micro",
+  globalAvailableModels: [
+    "amazon-nova-lite",
+    "amazon-nova-micro",
+    "claude-v3-haiku",
+  ],
+});
+
+// Production - full model access
+bedrockChatParams.set("prod", {
+  bedrockRegion: "us-west-2",
+  defaultModel: "claude-v3.7-sonnet",
+  titleModel: "claude-v3-haiku",
+  enableBedrockGlobalInference: true,
+  enableBedrockCrossRegionInference: true,
+  globalAvailableModels: [
+    "claude-v3.7-sonnet",
+    "claude-v3.5-sonnet",
+    "claude-v3-opus",
+    "amazon-nova-pro",
+    "amazon-nova-lite",
+    "llama3-3-70b-instruct",
+  ],
+});
+```
+
+Deploy specific environment:
+```bash
+npx cdk deploy --all -c envName=prod
+```
+
+## Model Selection Best Practices
+
+1. **Cost optimization:** Use smaller models (`amazon-nova-lite`, `claude-v3-haiku`) for title generation
+2. **Performance:** Use latest Claude models for best reasoning and accuracy
+3. **Compliance:** Restrict `globalAvailableModels` to organization-approved models only
+4. **Regional availability:** Choose `bedrockRegion` with best model availability for your use case
+5. **Throughput:** Enable global/cross-region inference for high-traffic deployments

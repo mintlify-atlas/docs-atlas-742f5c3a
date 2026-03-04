@@ -1,0 +1,158 @@
+---
+title: Migration Overview
+description: Overview of version migrations and upgrade paths for Bedrock Chat
+---
+
+## Version History
+
+Bedrock Chat has evolved through several major versions, each introducing significant improvements and architectural changes. Understanding the migration path between versions is crucial for maintaining your deployment.
+
+### Current Version: V3
+
+V3 introduces fine-grained permission control, Bot Store functionality, and enhanced administrative features. This version requires significant schema changes in DynamoDB.
+
+**Key Features:**
+- Fine-grained permission control with user group-based access
+- Bot Store marketplace for sharing and discovering bots
+- Enhanced administrative features for API management and bot analytics
+- Essential bot marking capability
+
+### Previous Versions
+
+#### Version 2
+V2 replaced pgvector on Aurora Serverless with Amazon Bedrock Knowledge Bases, improving RAG accuracy and reducing maintenance complexity.
+
+#### Version 1
+V1 introduced bot personalization and RAG capabilities using pgvector on Aurora PostgreSQL.
+
+#### Version 0
+Initial release with basic chat functionality powered by Amazon Bedrock.
+
+## Migration Paths
+
+### Recommended Upgrade Path
+
+To ensure a smooth migration with minimal data loss, follow the recommended upgrade path:
+
+```
+V0 → V1 → V1.4 → V2 → V2.10.0 → V3
+```
+
+<Warning>
+**Important:** Skipping versions during migration may result in data loss or compatibility issues. Always upgrade through intermediate versions as recommended.
+</Warning>
+
+### Migration Guide Selection
+
+Choose the appropriate migration guide based on your current version:
+
+<CardGroup cols={2}>
+  <Card title="V2 to V3 Migration" icon="arrow-right" href="/migration/v2-to-v3">
+    Migrate from V2 to V3 with schema changes and Bot Store
+  </Card>
+  <Card title="V1 to V2 Migration" icon="arrow-right" href="/migration/v1-to-v2">
+    Migrate from pgvector to Bedrock Knowledge Bases
+  </Card>
+  <Card title="V0 to V1 Migration" icon="arrow-right" href="/migration/v0-to-v1">
+    Upgrade from basic chat to bot personalization
+  </Card>
+</CardGroup>
+
+## Pre-Migration Checklist
+
+Before starting any migration:
+
+<Steps>
+  <Step title="Backup Your Data">
+    Create backups of all DynamoDB tables and S3 buckets containing documents
+    
+    ```bash
+    # Backup DynamoDB table
+    aws dynamodb create-backup \
+      --backup-name "BedrockChatBackup-$(date +%Y%m%d)" \
+      --table-name YOUR_TABLE_NAME
+    ```
+  </Step>
+  
+  <Step title="Document Bot Configurations">
+    Record all important bot settings, instructions, and knowledge sources in case manual recreation is needed
+  </Step>
+  
+  <Step title="Review Breaking Changes">
+    Read the specific migration guide for your version to understand all breaking changes
+  </Step>
+  
+  <Step title="Plan Downtime">
+    Schedule a maintenance window as migrations typically cause service interruption
+  </Step>
+  
+  <Step title="Verify Prerequisites">
+    Ensure all prerequisites for the target version are met (user groups, permissions, etc.)
+  </Step>
+</Steps>
+
+## Common Migration Considerations
+
+### Service Disruption
+
+Most major version migrations require downtime:
+- **V2 to V3**: ~60 minutes (depends on data volume)
+- **V1 to V2**: Varies based on bot recreation time
+- **V0 to V1**: Minimal downtime for database encryption
+
+### Data Preservation
+
+<AccordionGroup>
+  <Accordion title="What Data is Preserved">
+    - Conversation history
+    - Bot configurations (with schema updates)
+    - User accounts and authentication
+    - Document uploads (may require migration)
+  </Accordion>
+  
+  <Accordion title="What May Be Lost">
+    - Incompatible features (e.g., pgvector bots in V2+)
+    - Published APIs (must be republished)
+    - Custom configurations not supported in new versions
+  </Accordion>
+</AccordionGroup>
+
+### Regional Considerations
+
+Ensure your deployment region supports all required services:
+- Amazon Bedrock
+- Amazon OpenSearch Serverless
+- Amazon Bedrock Knowledge Bases
+
+See [Supported Regions](/deployment/regions) for detailed information.
+
+## Post-Migration Verification
+
+After completing migration:
+
+1. **Verify User Access**: Confirm all users can log in and access their data
+2. **Test Bot Functionality**: Validate that bots respond correctly with RAG content
+3. **Check Permissions**: Ensure permission controls work as expected (V3)
+4. **Review Analytics**: Confirm administrative features are functioning
+5. **Monitor Costs**: Check that new services are within expected cost ranges
+
+## Need Help?
+
+If you encounter issues during migration:
+- Review the [Troubleshooting Guide](/troubleshooting)
+- Check [GitHub Issues](https://github.com/aws-samples/bedrock-chat/issues)
+- Refer to specific migration guide documentation
+
+## Version Comparison Matrix
+
+| Feature | V0 | V1 | V2 | V3 |
+|---------|----|----|----|----||
+| Basic Chat | ✓ | ✓ | ✓ | ✓ |
+| Bot Personalization | ✗ | ✓ | ✓ | ✓ |
+| RAG (pgvector) | ✗ | ✓ | ✗ | ✗ |
+| Bedrock Knowledge Bases | ✗ | ✗ | ✓ | ✓ |
+| Bot Sharing | ✗ | Limited | Limited | ✓ |
+| Fine-grained Permissions | ✗ | ✗ | ✗ | ✓ |
+| Bot Store | ✗ | ✗ | ✗ | ✓ |
+| API Publishing | ✗ | ✓ | ✓ | ✓ |
+| Administrative Dashboard | ✗ | ✗ | Limited | ✓ |

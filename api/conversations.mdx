@@ -1,0 +1,582 @@
+---
+title: Conversation Endpoints
+description: API endpoints for managing conversations and messages
+---
+
+## Overview
+
+Conversation endpoints allow you to create chat conversations, send messages, manage conversation history, and retrieve related documents.
+
+## Send Message
+
+<api-endpoint>
+  <api-endpoint-heading method="POST" path="/conversation" />
+  <api-endpoint-description>
+    Send a chat message to create a new conversation or continue an existing one.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Request Body
+
+<ParamField body="conversation_id" type="string" required>
+  Unique conversation identifier
+</ParamField>
+
+<ParamField body="message" type="object" required>
+  Message object containing the user's input
+  
+  <Expandable title="message properties">
+    <ParamField body="role" type="string" required>
+      Role of the sender. Must be `"user"`
+    </ParamField>
+    
+    <ParamField body="content" type="array" required>
+      Array of content objects. Each content item can be text, image, or attachment.
+      
+      <Expandable title="content item properties">
+        <ParamField body="content_type" type="string" required>
+          Type of content: `"text"`, `"image"`, or `"attachment"`
+        </ParamField>
+        
+        <ParamField body="body" type="string" required>
+          For text: plain text string. For image/attachment: Base64-encoded bytes
+        </ParamField>
+        
+        <ParamField body="media_type" type="string">
+          MIME type (required for images, e.g., `"image/png"`)
+        </ParamField>
+        
+        <ParamField body="file_name" type="string">
+          File name (required for attachments)
+        </ParamField>
+      </Expandable>
+    </ParamField>
+    
+    <ParamField body="model" type="string" required>
+      Model to use for generation (e.g., `"claude-v3.5-sonnet"`, `"claude-v4-opus"`)
+    </ParamField>
+    
+    <ParamField body="parent_message_id" type="string">
+      ID of parent message (null to use latest message)
+    </ParamField>
+    
+    <ParamField body="message_id" type="string">
+      Custom message ID (auto-generated if not provided)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="bot_id" type="string">
+  ID of the bot to use for this conversation
+</ParamField>
+
+<ParamField body="continue_generate" type="boolean" default="false">
+  Whether to continue generation from the last message
+</ParamField>
+
+<ParamField body="enable_reasoning" type="boolean" default="false">
+  Enable reasoning mode for supported models
+</ParamField>
+
+### Response
+
+<ResponseField name="conversation_id" type="string">
+  The conversation identifier
+</ResponseField>
+
+<ResponseField name="message" type="object">
+  The bot's response message
+  
+  <Expandable title="message properties">
+    <ResponseField name="role" type="string">
+      Role of the message sender (`"user"` or `"bot"`)
+    </ResponseField>
+    
+    <ResponseField name="content" type="array">
+      Array of content objects in the response
+    </ResponseField>
+    
+    <ResponseField name="model" type="string">
+      Model used for generation
+    </ResponseField>
+    
+    <ResponseField name="children" type="array">
+      Array of child message IDs
+    </ResponseField>
+    
+    <ResponseField name="feedback" type="object">
+      User feedback on this message (if any)
+    </ResponseField>
+    
+    <ResponseField name="used_chunks" type="array">
+      Knowledge base chunks used for RAG
+    </ResponseField>
+    
+    <ResponseField name="parent" type="string">
+      Parent message ID
+    </ResponseField>
+    
+    <ResponseField name="thinking_log" type="array">
+      Reasoning traces (if reasoning is enabled)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="bot_id" type="string">
+  The bot ID used
+</ResponseField>
+
+<ResponseField name="create_time" type="float">
+  Unix timestamp of conversation creation
+</ResponseField>
+
+### Example Request
+
+```json
+{
+  "conversation_id": "01HQ4V8JFBK9PZXQ8YJKMND8GA",
+  "message": {
+    "role": "user",
+    "content": [
+      {
+        "content_type": "text",
+        "body": "What is Amazon Bedrock?"
+      }
+    ],
+    "model": "claude-v3.5-sonnet",
+    "parent_message_id": null
+  },
+  "bot_id": "my-assistant-bot",
+  "continue_generate": false,
+  "enable_reasoning": false
+}
+```
+
+### Example Response
+
+```json
+{
+  "conversation_id": "01HQ4V8JFBK9PZXQ8YJKMND8GA",
+  "message": {
+    "role": "bot",
+    "content": [
+      {
+        "content_type": "text",
+        "body": "Amazon Bedrock is a fully managed service that makes foundation models from leading AI companies available through an API..."
+      }
+    ],
+    "model": "claude-v3.5-sonnet",
+    "children": [],
+    "feedback": null,
+    "used_chunks": null,
+    "parent": "01HQ4V8JFBK9PZXQ8YJKMND8GB",
+    "thinking_log": null
+  },
+  "bot_id": "my-assistant-bot",
+  "create_time": 1704067200.0
+}
+```
+
+---
+
+## Get Conversation
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/conversation/{conversation_id}" />
+  <api-endpoint-description>
+    Retrieve a complete conversation history including all messages.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  The conversation ID to retrieve
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Conversation identifier
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Conversation title
+</ResponseField>
+
+<ResponseField name="create_time" type="float">
+  Unix timestamp of creation
+</ResponseField>
+
+<ResponseField name="message_map" type="object">
+  Dictionary mapping message IDs to message objects
+</ResponseField>
+
+<ResponseField name="last_message_id" type="string">
+  ID of the most recent message
+</ResponseField>
+
+<ResponseField name="bot_id" type="string">
+  Bot ID used in this conversation
+</ResponseField>
+
+<ResponseField name="should_continue" type="boolean">
+  Whether generation should continue
+</ResponseField>
+
+---
+
+## List All Conversations
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/conversations" />
+  <api-endpoint-description>
+    Get metadata for all conversations belonging to the current user.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Response
+
+Returns an array of conversation metadata objects:
+
+<ResponseField name="id" type="string">
+  Conversation identifier
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Conversation title
+</ResponseField>
+
+<ResponseField name="create_time" type="float">
+  Unix timestamp of creation
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  Model used in the conversation
+</ResponseField>
+
+<ResponseField name="bot_id" type="string">
+  Bot ID (if applicable)
+</ResponseField>
+
+---
+
+## Search Conversations
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/conversations/search" />
+  <api-endpoint-description>
+    Search conversations by keyword with highlighted results.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Query Parameters
+
+<ParamField query="query" type="string" required>
+  Search keyword or phrase
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Conversation identifier
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Conversation title
+</ResponseField>
+
+<ResponseField name="last_updated_time" type="float">
+  Unix timestamp of last update
+</ResponseField>
+
+<ResponseField name="bot_id" type="string">
+  Bot ID (if applicable)
+</ResponseField>
+
+<ResponseField name="highlights" type="array">
+  Search highlights showing matching text fragments
+</ResponseField>
+
+---
+
+## Delete Conversation
+
+<api-endpoint>
+  <api-endpoint-heading method="DELETE" path="/conversation/{conversation_id}" />
+  <api-endpoint-description>
+    Delete a specific conversation.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  The conversation ID to delete
+</ParamField>
+
+---
+
+## Delete All Conversations
+
+<api-endpoint>
+  <api-endpoint-heading method="DELETE" path="/conversations" />
+  <api-endpoint-description>
+    Delete all conversations for the current user.
+  </api-endpoint-description>
+</api-endpoint>
+
+---
+
+## Bulk Delete Conversations
+
+<api-endpoint>
+  <api-endpoint-heading method="DELETE" path="/conversations/bulk" />
+  <api-endpoint-description>
+    Delete multiple conversations at once (up to 100).
+  </api-endpoint-description>
+</api-endpoint>
+
+### Request Body
+
+<ParamField body="conversation_ids" type="array" required>
+  Array of conversation IDs to delete (1-100 items)
+</ParamField>
+
+### Response
+
+<ResponseField name="deleted_count" type="integer">
+  Number of successfully deleted conversations
+</ResponseField>
+
+<ResponseField name="failed_ids" type="array">
+  Array of conversation IDs that failed to delete
+</ResponseField>
+
+---
+
+## Update Conversation Title
+
+<api-endpoint>
+  <api-endpoint-heading method="PATCH" path="/conversation/{conversation_id}/title" />
+  <api-endpoint-description>
+    Update the title of a conversation.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  The conversation ID to update
+</ParamField>
+
+### Request Body
+
+<ParamField body="new_title" type="string" required>
+  The new title for the conversation
+</ParamField>
+
+---
+
+## Propose Conversation Title
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/conversation/{conversation_id}/proposed-title" />
+  <api-endpoint-description>
+    Get an AI-generated title suggestion for a conversation.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  The conversation ID
+</ParamField>
+
+### Response
+
+<ResponseField name="title" type="string">
+  Suggested conversation title
+</ResponseField>
+
+---
+
+## Submit Feedback
+
+<api-endpoint>
+  <api-endpoint-heading method="PUT" path="/conversation/{conversation_id}/{message_id}/feedback" />
+  <api-endpoint-description>
+    Submit feedback (thumbs up/down) for a bot message.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  The conversation ID
+</ParamField>
+
+<ParamField path="message_id" type="string" required>
+  The message ID to provide feedback on
+</ParamField>
+
+### Request Body
+
+<ParamField body="thumbs_up" type="boolean" required>
+  True for positive feedback, false for negative
+</ParamField>
+
+<ParamField body="category" type="string">
+  Reason category (required if thumbs_up is false)
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Optional detailed comment
+</ParamField>
+
+### Response
+
+<ResponseField name="thumbs_up" type="boolean">
+  The feedback value
+</ResponseField>
+
+<ResponseField name="category" type="string">
+  The category
+</ResponseField>
+
+<ResponseField name="comment" type="string">
+  The comment
+</ResponseField>
+
+---
+
+## Get Related Documents
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/conversation/{conversation_id}/related-documents" />
+  <api-endpoint-description>
+    Get all documents related to a conversation (used for RAG).
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  The conversation ID
+</ParamField>
+
+### Response
+
+Returns an array of related documents:
+
+<ResponseField name="content" type="object">
+  Tool result content (text, JSON, image, or document)
+</ResponseField>
+
+<ResponseField name="source_id" type="string">
+  Unique identifier for the source
+</ResponseField>
+
+<ResponseField name="source_name" type="string">
+  Name of the source document
+</ResponseField>
+
+<ResponseField name="source_link" type="string">
+  Link to the source (S3 URL or HTTP URL)
+</ResponseField>
+
+<ResponseField name="page_number" type="integer">
+  Page number in the source document
+</ResponseField>
+
+<ResponseField name="citation_number" type="integer">
+  Sequential citation number for inline references
+</ResponseField>
+
+<ResponseField name="excerpt" type="string">
+  Short text excerpt for citation preview
+</ResponseField>
+
+<ResponseField name="relevance_score" type="float">
+  Relevance score from 0.0 to 1.0
+</ResponseField>
+
+<ResponseField name="freshness_date" type="string">
+  Date the source was last updated (YYYY-MM-DD)
+</ResponseField>
+
+<ResponseField name="quality_score" type="float">
+  Combined quality score from 0.0 to 1.0
+</ResponseField>
+
+---
+
+## Get Related Document
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/conversation/{conversation_id}/related-documents/{source_id}" />
+  <api-endpoint-description>
+    Get a specific related document by source ID.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  The conversation ID
+</ParamField>
+
+<ParamField path="source_id" type="string" required>
+  The source document ID
+</ParamField>
+
+---
+
+## Get Document Preview
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/conversation/{conversation_id}/related-documents/{source_id}/preview" />
+  <api-endpoint-description>
+    Get a preview of a related document. Returns either a presigned URL for binary files (PDF, images) or text content.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  The conversation ID
+</ParamField>
+
+<ParamField path="source_id" type="string" required>
+  The source document ID
+</ParamField>
+
+### Response
+
+<ResponseField name="source_id" type="string">
+  The source ID of the document
+</ResponseField>
+
+<ResponseField name="source_name" type="string">
+  The name of the source
+</ResponseField>
+
+<ResponseField name="content_type" type="string">
+  Content type: `"text"`, `"pdf"`, `"image"`, or `"binary"`
+</ResponseField>
+
+<ResponseField name="preview_url" type="string">
+  Presigned URL for viewing binary files (valid for 15 minutes)
+</ResponseField>
+
+<ResponseField name="text_content" type="string">
+  Text content for text-based files (first 10,000 characters)
+</ResponseField>
+
+<ResponseField name="page_count" type="integer">
+  Number of pages for paginated documents
+</ResponseField>
+
+<ResponseField name="file_size" type="integer">
+  File size in bytes
+</ResponseField>

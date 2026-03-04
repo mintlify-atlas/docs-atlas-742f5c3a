@@ -1,0 +1,328 @@
+---
+title: UI Customization
+description: Customize the Bedrock Chat user interface, branding, and language settings
+---
+
+Bedrock Chat supports extensive UI customization including custom logos, language preferences, and branding options.
+
+## Logo Customization
+
+Replace the default Bedrock Chat logo with your organization's branding.
+
+<ParamField path="logoPath" type="string" default="">
+  Relative path to the logo image within the `frontend/public/` directory. The logo appears at the top of the navigation drawer.
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "logoPath": "images/company-logo.png"
+  }
+}
+```
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  logoPath: "assets/my-logo.svg",
+});
+```
+
+### Steps to Add Custom Logo
+
+1. Place your logo image in `frontend/public/` directory
+2. Set the `logoPath` parameter to the relative path
+3. Supported formats: PNG, SVG, JPG
+4. Recommended dimensions: 200x50 pixels (width x height)
+5. Deploy the application
+
+**Example structure:**
+```
+frontend/
+  public/
+    images/
+      company-logo.png  ← Your custom logo
+    favicon.ico
+```
+
+**Configuration:**
+```json
+{
+  "context": {
+    "logoPath": "images/company-logo.png"
+  }
+}
+```
+
+## Language Settings
+
+Bedrock Chat automatically detects user language using [i18next-browser-languageDetector](https://github.com/i18next/i18next-browser-languageDetector).
+
+### Supported Languages
+
+The application supports the following languages:
+- English (en)
+- Japanese (ja)
+- Korean (ko)
+- Simplified Chinese (zh-CN)
+- Traditional Chinese (zh-TW)
+- French (fr)
+- German (de)
+- Spanish (es)
+- Italian (it)
+- Norwegian (nb)
+- Thai (th)
+- Indonesian (id)
+- Malay (ms)
+- Vietnamese (vi)
+- Polish (pl)
+- Portuguese (Brazilian) (pt-BR)
+
+### Language Selection Methods
+
+#### 1. Application Menu
+
+Users can switch languages directly from the application menu in the UI.
+
+#### 2. Query String Parameter
+
+Set the language via URL query string:
+
+```
+https://your-bedrock-chat.cloudfront.net?lng=ja
+https://your-bedrock-chat.cloudfront.net?lng=es
+https://your-bedrock-chat.cloudfront.net?lng=de
+```
+
+#### 3. Browser Language Detection
+
+The application automatically detects and uses the browser's language preference if supported.
+
+## Bot Store Language
+
+Configure the language used for bot search and discovery in the bot store.
+
+<ParamField path="botStoreLanguage" type="string" default="en">
+  Primary language for bot search indexing and text analysis in the bot store. Optimizes search results for the specified language.
+</ParamField>
+
+**Supported values:**
+- `"en"` - English
+- `"de"` - German
+- `"fr"` - French
+- `"es"` - Spanish
+- `"ja"` - Japanese
+- `"ko"` - Korean
+- `"zhhans"` - Simplified Chinese
+- `"zhhant"` - Traditional Chinese
+- `"it"` - Italian
+- `"nb"` - Norwegian
+- `"th"` - Thai
+- `"id"` - Indonesian
+- `"ms"` - Malay
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "botStoreLanguage": "ja"
+  }
+}
+```
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  botStoreLanguage: "de",
+});
+```
+
+<Note>
+The bot store language affects how bots are indexed and searched in the marketplace. This improves search accuracy for non-English languages.
+</Note>
+
+## Bot Store Configuration
+
+Control whether the bot store feature is available to users.
+
+<ParamField path="enableBotStore" type="boolean" default="true">
+  Enable or disable the bot store feature where users can share and discover custom bots.
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "enableBotStore": true
+  }
+}
+```
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  enableBotStore: false,
+});
+```
+
+<ParamField path="enableBotStoreReplicas" type="boolean" default="false">
+  Enable standby replicas for the OpenSearch Serverless collection used by bot store. Improves availability but increases costs.
+</ParamField>
+
+<Warning>
+You cannot update `enableBotStoreReplicas` after the collection is created. The collection continues to use the original value. Plan this setting before initial deployment.
+</Warning>
+
+**Example:**
+```json
+{
+  "context": {
+    "enableBotStore": true,
+    "enableBotStoreReplicas": true,
+    "botStoreLanguage": "en"
+  }
+}
+```
+
+## Custom Domain Branding
+
+Use a custom domain name for your Bedrock Chat deployment.
+
+<ParamField path="alternateDomainName" type="string" default="">
+  Custom domain name for the application (e.g., `chat.company.com`).
+</ParamField>
+
+<ParamField path="hostedZoneId" type="string" default="">
+  Route 53 hosted zone ID where DNS records will be created.
+</ParamField>
+
+**Example:**
+```json
+{
+  "context": {
+    "alternateDomainName": "chat.company.com",
+    "hostedZoneId": "Z0123456789ABCDEF"
+  }
+}
+```
+
+When configured:
+- Automatic ACM certificate creation with DNS validation
+- DNS records created in Route 53
+- CloudFront configured with custom domain
+- Users access via branded URL: `https://chat.company.com`
+
+## S3 Bucket Naming Prefix
+
+Customize S3 bucket names with an organization-specific prefix.
+
+<ParamField path="bucketPrefix" type="string" default="">
+  Prefix applied to all S3 bucket names. Must be lowercase alphanumeric with hyphens only.
+</ParamField>
+
+**Example:**
+```json
+{
+  "context": {
+    "bucketPrefix": "mycompany"
+  }
+}
+```
+
+Resulting bucket names:
+- `mycompany-access-logs`
+- `mycompany-frontend-assets`
+- `mycompany-document-storage`
+
+**Naming rules:**
+- Lowercase letters only
+- Numbers allowed
+- Hyphens allowed
+- Must start with letter or number
+- No underscores, spaces, or special characters
+
+**Invalid examples:**
+```json
+// Invalid - uppercase
+{"bucketPrefix": "MyCompany"}
+
+// Invalid - underscore
+{"bucketPrefix": "my_company"}
+
+// Invalid - starts with hyphen
+{"bucketPrefix": "-company"}
+```
+
+## Multi-Environment Customization
+
+Customize different environments with distinct branding using `parameter.ts`.
+
+**Example:**
+```typescript
+bedrockChatParams.set("dev", {
+  logoPath: "images/dev-logo.png",
+  botStoreLanguage: "en",
+  enableBotStore: true,
+  bucketPrefix: "dev",
+});
+
+bedrockChatParams.set("prod", {
+  logoPath: "images/prod-logo.png",
+  botStoreLanguage: "en",
+  enableBotStore: true,
+  enableBotStoreReplicas: true,
+  bucketPrefix: "prod",
+  alternateDomainName: "chat.company.com",
+  hostedZoneId: "Z0123456789ABCDEF",
+});
+```
+
+Deploy specific environment:
+```bash
+npx cdk deploy --all -c envName=prod
+```
+
+## Deployment Script Customization
+
+Use the deployment script to override customization settings:
+
+```bash
+./bin.sh --cdk-json-override '{
+  "context": {
+    "logoPath": "images/company-logo.png",
+    "botStoreLanguage": "ja",
+    "enableBotStore": true,
+    "bucketPrefix": "acme",
+    "alternateDomainName": "chat.acme.com",
+    "hostedZoneId": "Z0123456789ABCDEF"
+  }
+}'
+```
+
+## User Experience Customization
+
+Beyond configuration, Bedrock Chat supports:
+
+### Custom Bots
+
+Users with `CreatingBotAllowed` group membership can create custom bots with:
+- Custom instructions and personality
+- Knowledge bases (RAG)
+- Specific model selection
+- Guardrails and content filtering
+
+### Bot Store
+
+Share custom bots through the marketplace:
+- Public and private bot sharing
+- Bot discovery and search
+- Usage analytics
+- Essential bot designation (Admin feature)
+
+### Agents
+
+Configure agents for complex task automation:
+- External tool integration
+- Multi-step task processing
+- Custom action definitions

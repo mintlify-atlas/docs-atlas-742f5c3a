@@ -1,0 +1,455 @@
+---
+title: "CDK Parameters"
+description: "Configuration parameters for Bedrock Chat deployment"
+---
+
+## Overview
+
+Bedrock Chat uses a schema-based parameter system powered by Zod for validation. Parameters can be configured in `cdk.json` (context) or `parameter.ts` (environment-specific).
+
+## Configuration Files
+
+### cdk.json
+
+Default parameters for the "default" environment. Located at `cdk/cdk.json`.
+
+### parameter.ts
+
+Environment-specific parameters with type safety. Located at `cdk/parameter.ts`.
+
+```typescript
+import { BedrockChatParametersInput } from "./lib/utils/parameter-models";
+
+export const bedrockChatParams = new Map<string, BedrockChatParametersInput>();
+
+// Define environments
+bedrockChatParams.set("dev", {
+  bedrockRegion: "us-east-1",
+  enableBotStore: true,
+  // ... other parameters
+});
+
+bedrockChatParams.set("prod", {
+  bedrockRegion: "us-west-2",
+  enableBotStore: true,
+  enableRagReplicas: true,
+  // ... other parameters
+});
+```
+
+**Deployment**:
+
+```bash
+# Deploy with environment
+npx cdk deploy --all --context envName=prod
+```
+
+---
+
+## Base Parameters
+
+Common across all stacks.
+
+<ParamField path="envName" type="string" default="default">
+  Environment name (max 10 chars, alphanumeric starting with letter).
+  Used as suffix for stack names and resource prefixes.
+</ParamField>
+
+<ParamField path="envPrefix" type="string" default="">
+  Automatically derived from `envName`. Empty for "default", otherwise equals `envName`.
+</ParamField>
+
+<ParamField path="bedrockRegion" type="string" default="us-east-1">
+  AWS region where Amazon Bedrock is available.
+  
+  **Common regions**: `us-east-1`, `us-west-2`, `eu-west-1`, `ap-northeast-1`
+</ParamField>
+
+<ParamField path="enableBedrockGlobalInference" type="boolean" default={true}>
+  Enable Bedrock's global inference routing for automatic model failover.
+</ParamField>
+
+<ParamField path="enableBedrockCrossRegionInference" type="boolean" default={true}>
+  Allow Bedrock to use models from multiple regions for higher availability.
+</ParamField>
+
+---
+
+## Bedrock Chat Parameters
+
+Main application parameters for `BedrockChatStack`.
+
+### Frontend & Security
+
+<ParamField path="enableFrontendWaf" type="boolean" default={true}>
+  Deploy Web ACL for CloudFront distribution.
+  
+  **Important**: Requires `us-east-1` deployment capability. Set to `false` if you cannot deploy to `us-east-1`.
+</ParamField>
+
+<ParamField path="enableFrontendIpv6" type="boolean" default={true}>
+  Enable IPv6 for CloudFront distribution.
+</ParamField>
+
+<ParamField path="allowedIpV4AddressRanges" type="string[]" default={["0.0.0.0/1", "128.0.0.0/1"]}>
+  Allowed IPv4 CIDR ranges for frontend access (enforced by WAF if enabled).
+  
+  **Default**: All IPv4 addresses allowed
+  
+  **Example**: `["203.0.113.0/24", "198.51.100.0/24"]`
+</ParamField>
+
+<ParamField path="allowedIpV6AddressRanges" type="string[]" default={["0000:0000:0000:0000:0000:0000:0000:0000/1", "8000:0000:0000:0000:0000:0000:0000:0000/1"]}>
+  Allowed IPv6 CIDR ranges for frontend access.
+  
+  **Default**: All IPv6 addresses allowed
+</ParamField>
+
+<ParamField path="allowedCountries" type="string[]" default={[]}>
+  ISO 3166-1 alpha-2 country codes for geo-restriction.
+  
+  **Empty array**: No geo-restriction
+  
+  **Example**: `["US", "CA", "GB"]`
+</ParamField>
+
+<ParamField path="publishedApiAllowedIpV4AddressRanges" type="string[]" default={["0.0.0.0/1", "128.0.0.0/1"]}>
+  Allowed IPv4 ranges for published bot APIs.
+</ParamField>
+
+<ParamField path="publishedApiAllowedIpV6AddressRanges" type="string[]" default={["0000:0000:0000:0000:0000:0000:0000:0000/1", "8000:0000:0000:0000:0000:0000:0000:0000/1"]}>
+  Allowed IPv6 ranges for published bot APIs.
+</ParamField>
+
+### Authentication
+
+<ParamField path="identityProviders" type="TIdentityProvider[]" default={[]}>
+  Array of identity provider configurations for SSO.
+  
+  **Format**:
+  ```json
+  [
+    {
+      "service": "google",
+      "secretName": "my-google-idp-secret"
+    },
+    {
+      "service": "oidc",
+      "serviceName": "MyOIDC",
+      "secretName": "my-oidc-secret"
+    }
+  ]
+  ```
+  
+  **Secrets Manager format**:
+  - Google: `{"clientId": "...", "clientSecret": "..."}`
+  - OIDC: `{"clientId": "...", "clientSecret": "...", "issuerUrl": "..."}`
+</ParamField>
+
+<ParamField path="userPoolDomainPrefix" type="string" default="">
+  Cognito domain prefix for hosted UI. Required if `identityProviders` is configured.
+  
+  **Format**: Lowercase alphanumeric and hyphens
+  
+  **Example**: `bedrock-chat-dev`
+</ParamField>
+
+<ParamField path="allowedSignUpEmailDomains" type="string[]" default={[]}>
+  Email domains allowed for self-signup.
+  
+  **Empty array**: All email domains allowed
+  
+  **Example**: `["example.com", "acme.org"]`
+</ParamField>
+
+<ParamField path="autoJoinUserGroups" type="string[]" default={["CreatingBotAllowed"]}>
+  Cognito groups users automatically join after signup.
+  
+  **Available groups**: `Admin`, `CreatingBotAllowed`, `PublishAllowed`
+</ParamField>
+
+<ParamField path="selfSignUpEnabled" type="boolean" default={true}>
+  Allow users to self-register. Disabled if identity providers are configured.
+</ParamField>
+
+<ParamField path="tokenValidMinutes" type="number" default={30}>
+  Cognito ID token validity in minutes.
+  
+  **Range**: 5 minutes to 24 hours
+</ParamField>
+
+### Performance & Availability
+
+<ParamField path="enableRagReplicas" type="boolean" default={true}>
+  Enable standby replicas for OpenSearch Serverless collections (Knowledge Bases).
+  
+  **Impact**: Higher availability, ~2x cost
+</ParamField>
+
+<ParamField path="enableLambdaSnapStart" type="boolean" default={true}>
+  Enable Lambda SnapStart for faster cold starts on API and WebSocket handlers.
+  
+  **Supported runtimes**: Java, Python (3.13+)
+</ParamField>
+
+### Custom Domain
+
+<ParamField path="alternateDomainName" type="string" default="">
+  Custom domain for the frontend (e.g., `chat.example.com`).
+  
+  **Requirements**: Valid ACM certificate will be auto-created in `us-east-1`
+</ParamField>
+
+<ParamField path="hostedZoneId" type="string" default="">
+  Route53 hosted zone ID for DNS record creation. Required if `alternateDomainName` is set.
+</ParamField>
+
+### Bot Store
+
+<ParamField path="enableBotStore" type="boolean" default={true}>
+  Enable bot store for discovering and sharing bots.
+</ParamField>
+
+<ParamField path="enableBotStoreReplicas" type="boolean" default={false}>
+  Enable standby replicas for bot store OpenSearch collection.
+</ParamField>
+
+<ParamField path="botStoreLanguage" type="BotStoreLanguage" default="en">
+  Language for bot store text analysis.
+  
+  **Options**: `en`, `de`, `fr`, `es`, `ja`, `ko`, `zhhans`, `zhhant`, `it`, `nb`, `th`, `id`, `ms`
+</ParamField>
+
+### Model Configuration
+
+<ParamField path="globalAvailableModels" type="string[]" default={[]}>
+  Restrict available models to specific model IDs.
+  
+  **Empty array**: All Bedrock models available
+  
+  **Example**: `["anthropic.claude-3-5-sonnet-20241022-v2:0", "anthropic.claude-3-5-haiku-20241022-v1:0"]`
+</ParamField>
+
+<ParamField path="defaultModel" type="string" optional>
+  Model ID selected by default when users first visit the app.
+  
+  **Example**: `"anthropic.claude-3-5-sonnet-20241022-v2:0"`
+</ParamField>
+
+<ParamField path="titleModel" type="string" optional>
+  Model used for generating conversation titles.
+  
+  **Default**: Falls back to `defaultModel`, then hardcoded default
+</ParamField>
+
+### Branding
+
+<ParamField path="logoPath" type="string" default="">
+  Path to custom logo file for frontend branding.
+  
+  **Format**: Relative path from frontend build directory
+</ParamField>
+
+### S3 Configuration
+
+<ParamField path="bucketPrefix" type="string" default="">
+  Prefix for all S3 bucket names.
+  
+  **Format**: Lowercase alphanumeric and hyphens only
+  
+  **Example**: `"mycompany"` creates buckets like `mycompany-access-logs`, `mycompany-frontend-assets`
+</ParamField>
+
+### Development
+
+<ParamField path="devAccessIamRoleArn" type="string" default="">
+  IAM role ARN for developer access to OpenSearch collections.
+  
+  **Format**: `arn:aws:iam::123456789012:role/DeveloperRole`
+  
+  **Grants**: `aoss:*` permissions for bot store debugging
+</ParamField>
+
+---
+
+## API Publish Parameters
+
+Parameters for `ApiPublishmentStack` (passed via CodeBuild environment variables).
+
+<ParamField path="publishedApiThrottleRateLimit" type="number" optional>
+  Steady-state requests per second.
+  
+  **Example**: `100`
+</ParamField>
+
+<ParamField path="publishedApiThrottleBurstLimit" type="number" optional>
+  Burst capacity for request handling.
+  
+  **Example**: `200`
+</ParamField>
+
+<ParamField path="publishedApiQuotaLimit" type="number" optional>
+  Maximum requests per quota period.
+  
+  **Example**: `10000`
+</ParamField>
+
+<ParamField path="publishedApiQuotaPeriod" type="'DAY' | 'WEEK' | 'MONTH'" optional>
+  Quota period for rate limiting.
+</ParamField>
+
+<ParamField path="publishedApiDeploymentStage" type="string" default="api">
+  API Gateway deployment stage name.
+</ParamField>
+
+<ParamField path="publishedApiId" type="string" optional>
+  Existing API ID to update (used for redeployment).
+</ParamField>
+
+<ParamField path="publishedApiAllowedOrigins" type="string" default='["*"]'>
+  JSON array of allowed CORS origins.
+  
+  **Example**: `'["https://app.example.com", "https://admin.example.com"]'`
+</ParamField>
+
+---
+
+## Custom Bot Parameters
+
+Parameters for `BedrockCustomBotStack` (passed via CodeBuild environment variables).
+
+<ParamField path="ownerUserId" type="string" required>
+  User ID of the bot creator.
+</ParamField>
+
+<ParamField path="botId" type="string" required>
+  Unique bot identifier (UUID).
+</ParamField>
+
+<ParamField path="documentBucketName" type="string" required>
+  S3 bucket name containing bot documents.
+</ParamField>
+
+<ParamField path="knowledge" type="string" required>
+  JSON-encoded knowledge configuration.
+  
+  **Format**:
+  ```json
+  {
+    "sourceUrls": ["https://docs.example.com"],
+    "filenames": ["document.pdf"],
+    "existingS3Urls": ["s3://bucket/prefix/"]
+  }
+  ```
+</ParamField>
+
+<ParamField path="knowledgeBase" type="string" required>
+  JSON-encoded Knowledge Base configuration.
+  
+  **Format**:
+  ```json
+  {
+    "embeddingsModel": {"modelId": "amazon.titan-embed-text-v2:0"},
+    "chunkingStrategy": "fixed-size",
+    "maxTokens": 300,
+    "overlapPercentage": 20
+  }
+  ```
+</ParamField>
+
+<ParamField path="guardrails" type="string" required>
+  JSON-encoded guardrails configuration.
+  
+  **Format**:
+  ```json
+  {
+    "is_guardrail_enabled": true,
+    "hateThreshold": 3,
+    "insultsThreshold": 3,
+    "sexualThreshold": 3,
+    "violenceThreshold": 3,
+    "misconductThreshold": 0,
+    "groundingThreshold": 0.75,
+    "relevanceThreshold": 0.75
+  }
+  ```
+  
+  **Thresholds**: 0 (disabled), 1 (low), 2 (medium), 3 (high)
+</ParamField>
+
+<ParamField path="enableRagReplicas" type="string" default="false">
+  Enable replicas for this bot's Knowledge Base.
+  
+  **Values**: `"true"` or `"false"` (string)
+</ParamField>
+
+---
+
+## Shared Knowledge Bases Parameters
+
+Parameters for `BedrockSharedKnowledgeBasesStack` (passed via CodeBuild environment variables).
+
+<ParamField path="sharedKnowledgeBases" type="string" required>
+  JSON-encoded array of shared Knowledge Base configurations.
+  
+  **Format**:
+  ```json
+  [
+    {
+      "knowledgeBaseHash": "abc123",
+      "embeddingsModel": {"modelId": "amazon.titan-embed-text-v2:0"},
+      "chunkingStrategy": "semantic",
+      "instruction": "Custom KB instructions"
+    }
+  ]
+  ```
+</ParamField>
+
+<ParamField path="documentBucketName" type="string" required>
+  S3 bucket containing shared documents.
+</ParamField>
+
+<ParamField path="enableRagReplicas" type="string" default="false">
+  Enable replicas for shared Knowledge Bases.
+</ParamField>
+
+---
+
+## Parameter Validation
+
+All parameters are validated using Zod schemas in `cdk/lib/utils/parameter-models.ts`.
+
+**Validation rules**:
+
+- `envName`: Max 10 chars, alphanumeric, starts with letter
+- `bucketPrefix`: Lowercase alphanumeric + hyphens, suitable for S3 naming
+- IP ranges: Valid CIDR notation
+- Model IDs: String format (not validated against Bedrock catalog)
+
+**Error handling**:
+
+```bash
+# Invalid parameter example
+$ npx cdk deploy
+
+Error: Validation error: Invalid input at "envName": String must match pattern /^$|^[a-zA-Z][a-zA-Z0-9]*$/
+```
+
+---
+
+## Environment Variables
+
+Runtime environment variables are automatically set by CDK for Lambda functions and CodeBuild projects. These are **not** user-configurable parameters.
+
+**Common Lambda environment variables**:
+
+- `CONVERSATION_TABLE_NAME`
+- `BOT_TABLE_NAME`
+- `BEDROCK_REGION`
+- `DOCUMENT_BUCKET`
+- `USER_POOL_ID`
+- `TABLE_ACCESS_ROLE_ARN`
+- `ENABLE_BEDROCK_GLOBAL_INFERENCE`
+- `ENABLE_BEDROCK_CROSS_REGION_INFERENCE`
+
+See construct documentation for complete lists per Lambda function.

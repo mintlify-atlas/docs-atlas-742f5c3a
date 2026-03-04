@@ -1,0 +1,300 @@
+---
+title: V0 to V1 Migration Guide
+description: Upgrade from basic chat to bot personalization with security improvements
+---
+
+## Overview
+
+If you're using Bedrock Chat version 0.4.x or earlier, you need to migrate to V1 to take advantage of bot personalization features and important security updates.
+
+## Why Migrate to V1?
+
+This major update includes important security and feature enhancements:
+
+### Security Updates
+
+- **Encrypted Vector Database**: The pgvector on Aurora PostgreSQL storage is now encrypted. This triggers a database replacement when deployed, which will delete existing vector items.
+- **Bot Creation Permissions**: The `CreatingBotAllowed` Cognito user group limits which users can create bots. Existing users are not in this group by default and need manual permission assignment.
+
+### New Features
+
+- **Bot Personalization**: Create custom bots with specific instructions
+- **RAG Capabilities**: Add knowledge to bots using documents (Retrieval-Augmented Generation)
+- **Enhanced Security**: Encrypted storage for vector embeddings
+
+<Warning>
+**Data Loss Warning**
+
+Deploying V1 will trigger Aurora cluster replacement and **DELETE ALL VECTOR ITEMS**. You must follow the migration procedure to restore your data.
+</Warning>
+
+## Prerequisites
+
+Before starting migration:
+
+1. Read the [Database Migration Guide](https://github.com/aws-samples/bedrock-chat/blob/v1/docs/migration/DATABASE_MIGRATION.md) to determine your restoration method
+2. Have AWS CLI access with appropriate permissions
+3. Access to your CloudFormation stack
+4. Administrator access to Amazon Cognito
+
+## Migration Methods
+
+You can restore vector items using one of two methods:
+
+1. **AWS Database Migration Service (DMS)**: For large-scale migrations
+2. **Migration Script**: Using the provided `migrate_v0_v1.py` script
+
+## Migration Process
+
+<Steps>
+  <Step title="Pull the V1 Branch">
+    Navigate to your project directory and checkout V1:
+    
+    ```bash
+    git fetch
+    git checkout v1
+    git pull origin v1
+    ```
+  </Step>
+  
+  <Step title="Prepare for Database Migration">
+    Choose your migration method:
+    
+    **If using DMS (Database Migration Service)**:
+    - Disable password rotation in the Aurora cluster
+    - Note the password to access the database
+    - Keep credentials secure for DMS configuration
+    
+    **If using the migration script**:
+    - No password needed (script handles authentication)
+    - Proceed to next step
+  </Step>
+  
+  <Step title="Remove All Published APIs">
+    Before CloudFormation can remove the existing Aurora cluster, you must delete all [published APIs](/features/api-publishing).
+    
+    1. Log in to Bedrock Chat as an administrator
+    2. Navigate to API Management
+    3. Delete all published APIs
+    4. Verify all `APIPublishmentStackXXXX` CloudFormation stacks are removed
+    
+    <Warning>
+    Failure to remove published APIs will cause the CDK deployment to fail.
+    </Warning>
+  </Step>
+  
+  <Step title="Deploy V1">
+    Deploy V1 using CDK. This will trigger Aurora cluster replacement:
+    
+    ```bash
+    cd cdk
+    npm ci
+    npx cdk deploy --all
+    ```
+    
+    <Warning>
+    This deployment will **DELETE ALL VECTOR ITEMS** from your database. Ensure you've prepared for migration in Step 2.
+    </Warning>
+  </Step>
+  
+  <Step title="Restore Vector Items">
+    Follow the [Database Migration Guide](https://github.com/aws-samples/bedrock-chat/blob/v1/docs/migration/DATABASE_MIGRATION.md) to restore your vector items using your chosen method.
+    
+    **Using the migration script**:
+    
+    ```bash
+    cd docs/migration
+    python migrate_v0_v1.py
+    ```
+    
+    The script will handle the restoration process automatically.
+  </Step>
+  
+  <Step title="Verify RAG Bots">
+    After restoration completes:
+    
+    1. Log in to Bedrock Chat
+    2. Access bots that have knowledge (RAG bots)
+    3. Ask questions related to the knowledge base
+    4. Verify responses include information from documents
+    
+    This confirms that vector items were successfully restored.
+  </Step>
+  
+  <Step title="Configure Bot Creation Permissions">
+    After deployment, all users will be unable to create new bots by default.
+    
+    To grant bot creation permissions:
+    
+    **Using AWS Console**:
+    1. Open the Amazon Cognito console
+    2. Navigate to the Bedrock Chat user pool
+    3. Go to Groups
+    4. Select the `CreatingBotAllowed` group
+    5. Add users who should be able to create bots
+    
+    **Using AWS CLI**:
+    
+    ```bash
+    # Add user to CreatingBotAllowed group
+    aws cognito-idp admin-add-user-to-group \
+      --user-pool-id YOUR_USER_POOL_ID \
+      --username user@example.com \
+      --group-name CreatingBotAllowed
+    ```
+    
+    Find your user pool ID in CloudFormation:
+    
+    ```bash
+    aws cloudformation describe-stacks \
+      --stack-name BedrockChatStack \
+      --query "Stacks[0].Outputs[?OutputKey=='AuthUserPoolId'].OutputValue" \
+      --output text
+    ```
+  </Step>
+  
+  <Step title="Verify Bot Creation">
+    Test that authorized users can create bots:
+    
+    1. Log out and log back in (required for group membership to take effect)
+    2. Navigate to bot creation interface
+    3. Create a test bot
+    4. Verify the bot is created successfully
+    
+    <Note>
+    Users must re-login for the `CreatingBotAllowed` group membership to take effect.
+    </Note>
+  </Step>
+</Steps>
+
+## Understanding User Groups
+
+V1 introduces user group-based permissions:
+
+### CreatingBotAllowed Group
+
+- **Purpose**: Controls who can create personalized bots
+- **Default**: Empty (no users have bot creation permissions)
+- **Location**: Amazon Cognito User Pool
+- **Effect**: Users not in this group can still use existing bots and chat, but cannot create new ones
+
+### Managing Group Membership
+
+Best practices for managing the `CreatingBotAllowed` group:
+
+1. **Add by Role**: Grant permissions based on user roles (e.g., data scientists, power users)
+2. **Review Regularly**: Periodically review group membership
+3. **Document Process**: Create internal documentation for requesting bot creation access
+4. **Onboarding**: Include group assignment in user onboarding procedures
+
+## Post-Migration Verification
+
+After completing all migration steps:
+
+<AccordionGroup>
+  <Accordion title="Verify Database Encryption">
+    Check that the Aurora database is now encrypted:
+    
+    1. Open AWS Console > RDS
+    2. Select your Aurora cluster
+    3. Check Configuration tab
+    4. Verify "Encryption" shows "Enabled"
+  </Accordion>
+  
+  <Accordion title="Verify Vector Data">
+    Test RAG functionality:
+    
+    1. Select a bot with knowledge/documents
+    2. Ask specific questions about the uploaded content
+    3. Verify accurate responses based on the documents
+    4. Test multiple bots if possible
+  </Accordion>
+  
+  <Accordion title="Verify Permission System">
+    Test the new permission system:
+    
+    1. Log in as a user NOT in `CreatingBotAllowed`
+    2. Verify they cannot create bots
+    3. Log in as a user IN `CreatingBotAllowed`
+    4. Verify they can create bots
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="CloudFormation deployment fails due to Aurora dependencies">
+    **Error**: Stack fails to delete Aurora cluster
+    
+    **Solution**:
+    1. Verify all published APIs are deleted
+    2. Check for any remaining CloudFormation stacks starting with `APIPublishment`
+    3. Manually delete any remaining API stacks
+    4. Retry the deployment
+  </Accordion>
+  
+  <Accordion title="Users can't create bots after migration">
+    **Issue**: All users unable to create bots
+    
+    **Solution**:
+    1. This is expected behavior in V1
+    2. Add users to `CreatingBotAllowed` group in Cognito
+    3. Users must log out and log back in
+    4. Verify group membership in Cognito console
+  </Accordion>
+  
+  <Accordion title="Vector items not restored after migration">
+    **Issue**: RAG bots don't have access to their knowledge
+    
+    **Solution**:
+    1. Verify the migration script completed successfully
+    2. Check the migration logs for errors
+    3. Review the Database Migration Guide for troubleshooting steps
+    4. Consider re-running the migration script
+    5. As a last resort, re-upload documents to bots
+  </Accordion>
+  
+  <Accordion title="Password rotation causing issues">
+    **Issue**: DMS migration failing due to password changes
+    
+    **Solution**:
+    1. Temporarily disable password rotation in Aurora
+    2. Complete the migration
+    3. Re-enable password rotation after migration completes
+  </Accordion>
+</AccordionGroup>
+
+## Rollback Procedure
+
+If you need to roll back to V0:
+
+<Warning>
+Rollback will lose any new bots or configurations created in V1.
+</Warning>
+
+1. Keep backups of your V0 Aurora database
+2. Checkout V0 branch:
+   ```bash
+   git checkout v0.4.x
+   ```
+3. Deploy V0:
+   ```bash
+   cd cdk
+   npx cdk deploy --all
+   ```
+4. Restore your V0 database from backup
+
+## Next Steps
+
+After successful migration to V1:
+
+- Explore [Bot Personalization](/features/bot-personalization)
+- Learn about [RAG with Documents](/features/rag)
+- Set up [User Group Management](/administration/user-groups)
+- Plan for [V2 Migration](/migration/v1-to-v2) when ready
+
+## Additional Resources
+
+- [Database Migration Guide](https://github.com/aws-samples/bedrock-chat/blob/v1/docs/migration/DATABASE_MIGRATION.md)
+- [Bot Personalization Documentation](/features/bot-personalization)
+- [Amazon Cognito User Groups](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-user-groups.html)

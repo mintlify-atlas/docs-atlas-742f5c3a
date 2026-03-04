@@ -1,0 +1,475 @@
+---
+title: Publishing Bot APIs
+description: Create standalone API endpoints from your custom bots
+---
+
+API publishing allows you to expose your custom bots as standalone REST APIs. This enables integration with external applications, workflows, and services without requiring users to access the web interface.
+
+## Overview
+
+Published APIs provide:
+
+- **Standalone Endpoints**: Independent API Gateway endpoints
+- **API Key Authentication**: Secure access with generated keys
+- **Rate Limiting**: Configurable throttling and quotas
+- **IP Restrictions**: WAF-based access control
+- **Async Operations**: Handle long-running LLM operations
+
+<Note>
+Only bots with `shared_scope = "all"` (public) can be published as APIs. The bot must be shared with all users before publishing.
+</Note>
+
+## Prerequisites
+
+### User Permissions
+
+API publishing requires membership in the `PublishAllowed` Cognito user group:
+
+1. Navigate to **Amazon Cognito** in the AWS Console
+2. Select your user pool (CloudFormation output: `AuthUserPoolIdxxxx`)
+3. Add users to the `PublishAllowed` group
+
+### Bot Requirements
+
+- Bot must be public (`shared_scope = "all"`)
+- Bot sync status must be `SUCCEEDED`
+- Bot must be tested and working correctly
+
+## Publishing a Bot
+
+### Via UI
+
+1. Navigate to your public bot
+2. Click **API Publish Settings**
+3. Configure settings:
+   - **Burst Limit**: Max requests per second during burst
+   - **Rate Limit**: Sustained requests per second
+   - **Quota**: Total requests allowed per period
+4. Click **Publish**
+
+Deployment takes about 3-5 minutes via AWS CodeBuild.
+
+### API Settings
+
+<Accordion title="Throttling Configuration">
+**Burst Limit**:
+- Maximum requests per second during burst periods
+- Default: 100 requests/second
+- Handles traffic spikes
+
+**Rate Limit**:
+- Sustained requests per second
+- Default: 50 requests/second
+- Long-term throughput limit
+
+**Quota**:
+- Total requests allowed per time period
+- Example: 10,000 requests/day
+- Prevents excessive usage
+
+For more details, see [AWS API Gateway Throttling](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html).
+</Accordion>
+
+## Architecture
+
+Published APIs use a dedicated infrastructure stack:
+
+```
+Client → WAF → API Gateway → Lambda → SQS → LLM Processing
+          ↓                      ↓
+    IP Filter              API Key Check
+```
+
+### Components
+
+- **AWS WAF**: IP address restrictions (shared across all published APIs)
+- **API Gateway**: REST API endpoint with API key authentication
+- **Lambda**: Request handler and response formatter
+- **SQS**: Decouples request from LLM processing (handles >30s operations)
+- **API Keys**: Generated keys for authentication
+
+### Why SQS?
+
+LLM response generation can exceed API Gateway's 30-second timeout. SQS enables:
+
+1. Client sends request → Immediate acknowledgment
+2. Request queued in SQS
+3. Worker processes request asynchronously
+4. Client polls for result
+
+## API Specification
+
+Published APIs follow a standard format. See the [complete API specification](https://aws-samples.github.io/bedrock-chat) for details.
+
+### Request Format
+
+```bash
+POST https://{api-id}.execute-api.{region}.amazonaws.com/prod/predict
+Content-Type: application/json
+x-api-key: your-api-key-here
+
+{
+  "message": "Your question or prompt here",
+  "temperature": 0.7,
+  "max_tokens": 2000
+}
+```
+
+### Response Format
+
+```json
+{
+  "request_id": "req-123",
+  "status": "processing",
+  "message": "Request accepted"
+}
+```
+
+### Polling for Results
+
+```bash
+GET https://{api-id}.execute-api.{region}.amazonaws.com/prod/result/{request_id}
+x-api-key: your-api-key-here
+```
+
+Response:
+
+```json
+{
+  "request_id": "req-123",
+  "status": "completed",
+  "response": "The AI-generated response text...",
+  "usage": {
+    "input_tokens": 150,
+    "output_tokens": 300
+  }
+}
+```
+
+## Managing API Keys
+
+### Creating Keys
+
+After publishing:
+
+1. View your published bot
+2. Navigate to **API Keys** section
+3. Click **Generate New Key**
+4. Copy the key (shown only once)
+
+<Note>
+Store API keys securely. They cannot be retrieved after initial generation.
+</Note>
+
+### Rotating Keys
+
+1. Generate a new API key
+2. Update client applications with new key
+3. Delete old key once migration is complete
+
+### Revoking Keys
+
+1. Navigate to **API Keys** section
+2. Select the key to revoke
+3. Click **Delete**
+
+Revoked keys immediately stop working.
+
+## Security
+
+### IP Address Restrictions
+
+Configure allowed IP ranges in CDK deployment:
+
+```json
+{
+  "publishedApiAllowedIpV4AddressRanges": ["203.0.113.0/24"],
+  "publishedApiAllowedIpV6AddressRanges": ["2001:db8::/32"]
+}
+```
+
+<Note>
+WAF rules are shared across all published APIs to reduce costs. IP restrictions apply to all published bot APIs.
+</Note>
+
+### Authentication
+
+All requests require `x-api-key` header:
+
+```bash
+curl -X POST https://api-endpoint/prod/predict \
+  -H "x-api-key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello"}'
+```
+
+Missing or invalid keys receive `403 Forbidden`.
+
+### Rate Limiting
+
+Exceeding rate limits returns:
+
+```json
+{
+  "message": "Too Many Requests"
+}
+```
+
+HTTP Status: `429`
+
+Clients should implement exponential backoff.
+
+## Monitoring and Analytics
+
+### CloudWatch Metrics
+
+View metrics for published APIs:
+
+- Request count
+- Error rate (4xx, 5xx)
+- Latency (p50, p99)
+- Throttled requests
+
+### Bot Analytics
+
+Administrators can view:
+- API usage per bot
+- Token consumption
+- Cost allocation
+- Request patterns
+
+See [Administrator documentation](/admin/api-management) for details.
+
+## Updating Published APIs
+
+### Bot Changes
+
+When you update the bot:
+
+- Instructions, knowledge, and tools update automatically
+- No API redeployment required
+- Changes apply to new requests immediately
+
+### Throttling Changes
+
+To update rate limits:
+
+1. Edit API publish settings
+2. Adjust burst/rate/quota values
+3. Click **Update**
+
+Changes apply within minutes.
+
+## Unpublishing APIs
+
+To remove a published API:
+
+1. Navigate to bot **API Publish Settings**
+2. Click **Unpublish**
+3. Confirm deletion
+
+This:
+- Deletes the CloudFormation stack
+- Removes API Gateway endpoint
+- Revokes all API keys
+- Cannot be undone
+
+<Note>
+Existing client applications will receive `404 Not Found` errors after unpublishing.
+</Note>
+
+## Integration Examples
+
+<Accordion title="Python Client">
+```python
+import requests
+import time
+
+API_ENDPOINT = "https://abc123.execute-api.us-east-1.amazonaws.com/prod"
+API_KEY = "your-api-key"
+
+def ask_bot(message: str) -> str:
+    # Submit request
+    response = requests.post(
+        f"{API_ENDPOINT}/predict",
+        headers={"x-api-key": API_KEY},
+        json={"message": message}
+    )
+    request_id = response.json()["request_id"]
+    
+    # Poll for result
+    while True:
+        result = requests.get(
+            f"{API_ENDPOINT}/result/{request_id}",
+            headers={"x-api-key": API_KEY}
+        )
+        data = result.json()
+        
+        if data["status"] == "completed":
+            return data["response"]
+        elif data["status"] == "failed":
+            raise Exception(data.get("error", "Unknown error"))
+        
+        time.sleep(2)  # Wait before next poll
+
+# Usage
+answer = ask_bot("What is the capital of France?")
+print(answer)
+```
+</Accordion>
+
+<Accordion title="JavaScript/Node.js Client">
+```javascript
+const axios = require('axios');
+
+const API_ENDPOINT = 'https://abc123.execute-api.us-east-1.amazonaws.com/prod';
+const API_KEY = 'your-api-key';
+
+async function askBot(message) {
+  // Submit request
+  const { data: submitResponse } = await axios.post(
+    `${API_ENDPOINT}/predict`,
+    { message },
+    { headers: { 'x-api-key': API_KEY } }
+  );
+  
+  const requestId = submitResponse.request_id;
+  
+  // Poll for result
+  while (true) {
+    const { data } = await axios.get(
+      `${API_ENDPOINT}/result/${requestId}`,
+      { headers: { 'x-api-key': API_KEY } }
+    );
+    
+    if (data.status === 'completed') {
+      return data.response;
+    } else if (data.status === 'failed') {
+      throw new Error(data.error || 'Unknown error');
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+}
+
+// Usage
+askBot('What is the capital of France?')
+  .then(answer => console.log(answer))
+  .catch(error => console.error(error));
+```
+</Accordion>
+
+<Accordion title="cURL Example">
+```bash
+# Submit request
+REQUEST_ID=$(curl -X POST \
+  https://abc123.execute-api.us-east-1.amazonaws.com/prod/predict \
+  -H "x-api-key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What is the capital of France?"}' \
+  | jq -r '.request_id')
+
+# Poll for result
+while true; do
+  RESULT=$(curl -s \
+    https://abc123.execute-api.us-east-1.amazonaws.com/prod/result/$REQUEST_ID \
+    -H "x-api-key: your-api-key")
+  
+  STATUS=$(echo $RESULT | jq -r '.status')
+  
+  if [ "$STATUS" = "completed" ]; then
+    echo $RESULT | jq -r '.response'
+    break
+  elif [ "$STATUS" = "failed" ]; then
+    echo "Error: $(echo $RESULT | jq -r '.error')"
+    exit 1
+  fi
+  
+  sleep 2
+done
+```
+</Accordion>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Key Management" icon="key">
+    Rotate API keys regularly. Use different keys for different clients or environments.
+  </Card>
+  
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Implement retry logic with exponential backoff for transient failures.
+  </Card>
+  
+  <Card title="Rate Limiting" icon="gauge">
+    Design clients to respect rate limits. Cache responses when possible.
+  </Card>
+  
+  <Card title="Monitoring" icon="chart-line">
+    Monitor API usage and errors. Set up CloudWatch alarms for anomalies.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<Accordion title="403 Forbidden">
+Causes:
+- Invalid or missing API key
+- IP address not in allowlist
+- Key has been revoked
+
+Solution: Verify API key and source IP address.
+</Accordion>
+
+<Accordion title="429 Too Many Requests">
+Causes:
+- Exceeded burst limit
+- Exceeded rate limit
+- Quota exhausted
+
+Solution: Implement backoff logic or request quota increase.
+</Accordion>
+
+<Accordion title="504 Gateway Timeout">
+Causes:
+- LLM processing taking too long
+- SQS queue full
+
+Solution: Use async pattern (submit + poll). Increase timeout if possible.
+</Accordion>
+
+<Accordion title="Bot Not Available for Publishing">
+Causes:
+- Bot is not public (`shared_scope != "all"`)
+- User not in `PublishAllowed` group
+- Bot sync status is not `SUCCEEDED`
+
+Solution: Make bot public and ensure it's fully synced.
+</Accordion>
+
+## Cost Optimization
+
+- **Shared WAF**: IP restrictions shared across APIs reduces costs
+- **Async Processing**: SQS prevents Lambda timeout charges
+- **API Caching**: Implement client-side caching for repeated queries
+- **Quotas**: Set reasonable limits to control usage and costs
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Create a Bot" href="/features/custom-bots" icon="robot">
+    Build a bot to publish as an API
+  </Card>
+  
+  <Card title="Bot Store" href="/features/bot-store" icon="store">
+    Share your bot before publishing
+  </Card>
+  
+  <Card title="Admin Guide" href="/administration/bot-management" icon="shield">
+    Manage published APIs as administrator
+  </Card>
+  
+  <Card title="API Docs" href="https://aws-samples.github.io/bedrock-chat" icon="book">
+    Complete API specification
+  </Card>
+</CardGroup>

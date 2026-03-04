@@ -1,0 +1,456 @@
+---
+title: "CDK Constructs"
+description: "Reusable CDK constructs for Bedrock Chat infrastructure"
+---
+
+## Overview
+
+Bedrock Chat uses AWS CDK constructs to encapsulate and reuse infrastructure patterns. Each construct represents a logical component of the application.
+
+## Core Constructs
+
+### Auth
+
+Authentication construct using Amazon Cognito.
+
+**Location**: `cdk/lib/constructs/auth.ts`
+
+**Props**:
+
+<ParamField path="origin" type="string" required>
+  Frontend origin URL for OAuth callbacks
+</ParamField>
+
+<ParamField path="userPoolDomainPrefixKey" type="string" required>
+  Cognito domain prefix for hosted UI
+</ParamField>
+
+<ParamField path="idp" type="Idp" required>
+  Identity provider configuration object
+</ParamField>
+
+<ParamField path="allowedSignUpEmailDomains" type="string[]" required>
+  Allowed email domains for self-signup (e.g., ["example.com"])
+</ParamField>
+
+<ParamField path="autoJoinUserGroups" type="string[]" required>
+  Groups users automatically join after signup
+</ParamField>
+
+<ParamField path="selfSignUpEnabled" type="boolean" required>
+  Enable self-service user registration
+</ParamField>
+
+<ParamField path="tokenValidity" type="Duration" required>
+  ID token validity duration
+</ParamField>
+
+<ParamField path="webAclArn" type="string">
+  Optional Web ACL ARN to protect the user pool
+</ParamField>
+
+**Exports**:
+
+- `userPool`: Cognito User Pool instance
+- `client`: Cognito User Pool Client
+
+**User Groups**:
+
+- **Admin**: Full administrative access
+- **CreatingBotAllowed**: Can create and manage bots
+- **PublishAllowed**: Can publish bot APIs
+
+**Features**:
+
+- Email domain validation via Lambda trigger
+- Auto-join groups via post-confirmation trigger
+- Support for Google and custom OIDC providers
+- Optional WAF protection
+
+---
+
+### Api
+
+Backend REST API construct using API Gateway and Lambda.
+
+**Location**: `cdk/lib/constructs/api.ts`
+
+**Props**:
+
+<ParamField path="database" type="Database" required>
+  Database construct with DynamoDB tables
+</ParamField>
+
+<ParamField path="auth" type="Auth" required>
+  Authentication construct for user pool integration
+</ParamField>
+
+<ParamField path="bedrockRegion" type="string" required>
+  AWS region for Bedrock API calls
+</ParamField>
+
+<ParamField path="documentBucket" type="IBucket" required>
+  S3 bucket for document storage
+</ParamField>
+
+<ParamField path="embeddingStateMachine" type="sfn.IStateMachine" required>
+  Step Functions state machine for RAG processing
+</ParamField>
+
+<ParamField path="enableBedrockGlobalInference" type="boolean" required>
+  Enable global inference routing
+</ParamField>
+
+<ParamField path="enableLambdaSnapStart" type="boolean" required>
+  Enable SnapStart for faster cold starts
+</ParamField>
+
+<ParamField path="globalAvailableModels" type="string[]">
+  Array of model IDs available to users (empty = all models)
+</ParamField>
+
+<ParamField path="provisionedConcurrency" type="number">
+  Number of warm Lambda instances (0 = disabled)
+</ParamField>
+
+**Exports**:
+
+- `api`: HTTP API Gateway instance
+- `handler`: Lambda function handling requests
+
+**Lambda Configuration**:
+
+- **Runtime**: Python 3.13 with Lambda Web Adapter
+- **Memory**: 1024 MB
+- **Timeout**: 15 minutes
+- **Architecture**: x86_64
+- **Handler**: FastAPI application via `run.sh`
+
+**IAM Permissions**:
+
+- Bedrock API access (`bedrock:*`)
+- DynamoDB table access via assume role
+- CodeBuild project start for bot/API creation
+- CloudFormation stack operations
+- Athena queries for usage analysis
+- Cognito user management
+- OpenSearch Serverless access
+
+---
+
+### WebSocket
+
+WebSocket API construct for streaming responses.
+
+**Location**: `cdk/lib/constructs/websocket.ts`
+
+**Props**:
+
+<ParamField path="database" type="Database" required>
+  Database construct for session management
+</ParamField>
+
+<ParamField path="auth" type="Auth" required>
+  Authentication for WebSocket connections
+</ParamField>
+
+<ParamField path="bedrockRegion" type="string" required>
+  Region for Bedrock streaming API
+</ParamField>
+
+<ParamField path="documentBucket" type="IBucket" required>
+  S3 bucket for RAG document access
+</ParamField>
+
+<ParamField path="enableLambdaSnapStart" type="boolean" required>
+  Enable SnapStart for reduced latency
+</ParamField>
+
+<ParamField path="provisionedConcurrency" type="number">
+  Warm instances for streaming (recommended: 1-2)
+</ParamField>
+
+**Exports**:
+
+- `webSocketApi`: WebSocket API instance
+- `handler`: Lambda function for WebSocket events
+- `apiEndpoint`: Full WebSocket endpoint URL
+
+**Lambda Configuration**:
+
+- **Runtime**: Python 3.13
+- **Memory**: 1024 MB (optimized for streaming)
+- **Timeout**: 15 minutes
+- **Entry Point**: `app/websocket.py`
+
+**Features**:
+
+- Message concatenation for inputs >32KB
+- Large payload support via S3
+- Session management with DynamoDB
+- Streaming response from Bedrock
+
+---
+
+### Database
+
+DynamoDB tables for data persistence.
+
+**Location**: `cdk/lib/constructs/database.ts`
+
+**Props**:
+
+<ParamField path="pointInTimeRecovery" type="boolean">
+  Enable PITR for conversation table
+</ParamField>
+
+**Exports**:
+
+- `conversationTable`: Conversation storage
+- `botTable`: Bot configurations
+- `tableAccessRole`: IAM role for row-level security
+- `websocketSessionTable`: WebSocket session data
+- `auditLogTable`: User action audit trail
+- `costAllocationTable`: Usage cost tracking
+- `botAnalyticsTable`: Bot usage metrics
+
+**Table Schemas**:
+
+#### ConversationTable
+
+- **PK**: UserId
+- **SK**: ConversationId
+- **GSI**: SKIndex (for fetching by conversation ID)
+- **Features**: DynamoDB Streams, PITR (configurable)
+
+#### BotTable
+
+- **PK**: UserId
+- **SK**: ItemType
+- **LSI-1**: StarredIndex (IsStarred)
+- **LSI-2**: LastUsedTimeIndex (LastUsedTime)
+- **GSI-1**: BotIdIndex (BotId)
+- **GSI-2**: SharedScopeIndex (SharedScope, SharedStatus)
+- **GSI-3**: ItemTypeIndex (ItemType)
+- **GSI-4**: SyncStatusIndex (SyncStatus)
+- **Features**: DynamoDB Streams, PITR (always enabled)
+
+#### AuditLogTable
+
+- **PK**: USER#{user_id}
+- **SK**: TIMESTAMP#{timestamp}#ACTION#{action_id}
+- **GSI-1**: ActionTypeGSIIndex
+- **GSI-2**: ResourceGSIIndex
+- **Features**: TTL attribute
+
+#### CostAllocationTable
+
+- **PK**: PERIOD#{YYYY-MM}
+- **SK**: USER#{user_id}#BOT#{bot_id}
+- **GSI-1**: UserIndex (UserId, PK)
+- **GSI-2**: BotIndex (BotId, PK)
+
+#### BotAnalyticsTable
+
+- **PK**: BOT#{bot_id} or BOT#{bot_id}#QUERIES
+- **SK**: DATE#{YYYY-MM-DD} or TIMESTAMP#{timestamp}
+- **Features**: TTL attribute
+
+---
+
+### Frontend
+
+CloudFront distribution and S3 hosting for React app.
+
+**Location**: `cdk/lib/constructs/frontend.ts`
+
+**Props**:
+
+<ParamField path="webAclId" type="string">
+  Web ACL ID for distribution protection
+</ParamField>
+
+<ParamField path="accessLogBucket" type="IBucket">
+  S3 bucket for access logs
+</ParamField>
+
+<ParamField path="enableIpV6" type="boolean" required>
+  Enable IPv6 for CloudFront
+</ParamField>
+
+<ParamField path="alternateDomainName" type="string">
+  Custom domain name (e.g., chat.example.com)
+</ParamField>
+
+<ParamField path="hostedZoneId" type="string">
+  Route53 hosted zone ID for custom domain
+</ParamField>
+
+<ParamField path="allowedCountries" type="string[]">
+  ISO country codes for geo-restriction (empty = no restriction)
+</ParamField>
+
+**Exports**:
+
+- `cloudFrontWebDistribution`: CloudFront distribution
+- `assetBucket`: S3 bucket with website files
+- `getOrigin()`: Returns frontend URL (custom domain or CloudFront)
+
+**Features**:
+
+- Vite build integration via `deploy-time-build`
+- SPA routing with error page redirects
+- Optional ACM certificate for custom domains
+- Route53 A/AAAA record creation
+- Geo-restriction support
+
+---
+
+### Embedding
+
+Step Functions state machine for RAG document processing.
+
+**Location**: `cdk/lib/constructs/embedding.ts`
+
+**Props**:
+
+<ParamField path="database" type="Database" required>
+  Database for bot sync status tracking
+</ParamField>
+
+<ParamField path="bedrockRegion" type="string" required>
+  Region for Knowledge Base operations
+</ParamField>
+
+<ParamField path="documentBucket" type="IBucket" required>
+  S3 bucket with source documents
+</ParamField>
+
+<ParamField path="bedrockCustomBotProject" type="codebuild.IProject" required>
+  CodeBuild project for custom bot stacks
+</ParamField>
+
+<ParamField path="bedrockSharedKnowledgeBasesProject" type="codebuild.IProject" required>
+  CodeBuild project for shared KB stacks
+</ParamField>
+
+<ParamField path="enableRagReplicas" type="boolean" required>
+  Pass-through flag for Knowledge Base replicas
+</ParamField>
+
+**Exports**:
+
+- `stateMachine`: Step Functions state machine
+- `removalHandler`: Lambda triggered on bot deletion
+
+**State Machine Flow**:
+
+1. **Bootstrap**: Load queued bots and shared KBs from DynamoDB
+2. **Shared KB Sync** (conditional):
+   - Acquire distributed lock
+   - Deploy/update shared KB stack via CodeBuild
+   - Finalize: Extract KB IDs from CloudFormation outputs
+   - Ingest: Start data source ingestion jobs
+   - Release lock
+3. **Custom Bot Processing** (parallel):
+   - Acquire bot-specific lock
+   - Deploy custom bot stack via CodeBuild
+   - Finalize: Extract KB/Guardrail IDs
+   - Ingest: Process file diffs
+   - Update sync status
+   - Release lock
+
+**Lambda Handlers**:
+
+- `UpdateSyncStatusHandler`: Updates bot sync status in DynamoDB
+- `BootstrapStateMachineHandler`: Prepares execution context
+- `FinalizeCustomBotBuildHandler`: Extracts custom bot outputs
+- `FinalizeSharedKnowledgeBasesBuildHandler`: Extracts shared KB outputs
+- `SynchronizeDataSourceHandler`: Manages ingestion jobs
+- `LockHandler`: Distributed locking via S3
+
+---
+
+### BotStore
+
+OpenSearch Serverless collection for bot discovery.
+
+**Location**: `cdk/lib/constructs/bot-store.ts`
+
+**Props**:
+
+<ParamField path="envPrefix" type="string" required>
+  Environment prefix for collection name
+</ParamField>
+
+<ParamField path="botTable" type="ITable" required>
+  DynamoDB bot table to sync from
+</ParamField>
+
+<ParamField path="conversationTable" type="ITable" required>
+  Conversation table for analytics
+</ParamField>
+
+<ParamField path="language" type="Language" required>
+  Language for text analysis (en, ja, ko, etc.)
+</ParamField>
+
+<ParamField path="enableBotStoreReplicas" type="boolean" required>
+  Enable standby replicas
+</ParamField>
+
+**Exports**:
+
+- `openSearchEndpoint`: Collection endpoint URL
+- `addDataAccessPolicy()`: Method to grant access
+
+**Supported Languages**:
+
+`en`, `de`, `fr`, `es`, `ja`, `ko`, `zhhans`, `zhhant`, `it`, `nb`, `th`, `id`, `ms`
+
+---
+
+## Helper Constructs
+
+### UsageAnalysis
+
+Athena and Glue integration for usage analytics.
+
+**Location**: `cdk/lib/constructs/usage-analysis.ts`
+
+**Features**:
+
+- DynamoDB export to S3
+- Glue Data Catalog tables
+- Athena workgroup for queries
+- Query result bucket
+
+### ApiPublishCodebuild
+
+CodeBuild project for deploying published API stacks.
+
+**Location**: `cdk/lib/constructs/api-publish-codebuild.ts`
+
+### BedrockCustomBotCodebuild
+
+CodeBuild project for deploying custom bot stacks.
+
+**Location**: `cdk/lib/constructs/bedrock-custom-bot-codebuild.ts`
+
+### BedrockSharedKnowledgeBasesCodebuild
+
+CodeBuild project for deploying shared Knowledge Base stacks.
+
+**Location**: `cdk/lib/constructs/bedrock-shared-knowledge-bases-codebuild.ts`
+
+### WebAclForCognito
+
+Regional Web ACL for Cognito User Pool protection.
+
+**Location**: `cdk/lib/constructs/webacl-for-cognito.ts`
+
+### WebAclForPublishedApi
+
+Regional Web ACL for published REST APIs.
+
+**Location**: `cdk/lib/constructs/webacl-for-published-api.ts`

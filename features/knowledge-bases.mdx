@@ -1,0 +1,438 @@
+---
+title: Knowledge Bases and RAG
+description: Enhance bots with custom knowledge using Retrieval-Augmented Generation
+---
+
+Knowledge bases enable your custom bots to access and reason over domain-specific information through Retrieval-Augmented Generation (RAG). This allows bots to provide accurate, up-to-date answers grounded in your documents and data.
+
+## What is RAG?
+
+Retrieval-Augmented Generation combines:
+
+1. **Retrieval**: Search for relevant information from your knowledge base
+2. **Augmentation**: Add retrieved context to the user's query
+3. **Generation**: Generate responses using both the query and retrieved context
+
+This approach ensures responses are:
+- Grounded in your specific data
+- More accurate and factual
+- Verifiable with source citations
+
+<Note>
+RAG helps reduce hallucinations by providing the model with relevant facts before generating responses.
+</Note>
+
+## Supported Knowledge Sources
+
+Bedrock Chat supports multiple knowledge source types:
+
+<CardGroup cols={2}>
+  <Card title="File Uploads" icon="file-arrow-up">
+    PDF, TXT, MD, CSV, XLSX, DOCX, and more. Files are automatically parsed and embedded.
+  </Card>
+  
+  <Card title="Web URLs" icon="globe">
+    Individual web pages are crawled, parsed, and indexed for retrieval.
+  </Card>
+  
+  <Card title="Sitemaps" icon="sitemap">
+    Provide a sitemap URL to automatically index all pages in a website.
+  </Card>
+  
+  <Card title="S3 URLs" icon="aws">
+    Reference files stored in S3 buckets (requires appropriate IAM permissions).
+  </Card>
+</CardGroup>
+
+## Knowledge Base Architecture
+
+Knowledge bases are powered by Amazon Bedrock Knowledge Bases with OpenSearch Serverless:
+
+```
+Documents → Ingestion Pipeline → Embedding → OpenSearch Serverless
+                   ↓                 ↓
+              Parsing          Amazon Titan
+            (Step Functions)   Embeddings
+```
+
+### Components
+
+- **Amazon Bedrock Knowledge Bases**: Managed RAG service
+- **OpenSearch Serverless**: Vector database for semantic search
+- **Step Functions**: Orchestrates document ingestion
+- **Amazon Titan Embeddings**: Converts text to vectors
+
+## Knowledge Base Types
+
+Bedrock Chat offers two deployment models:
+
+### Dedicated Knowledge Base
+
+Each bot gets its own Knowledge Base:
+
+- Isolated data per bot
+- Dedicated resources
+- Higher limit consumption (100 KBs per account by default)
+
+### Multi-Tenant Knowledge Base (Recommended)
+
+Multiple bots share a common Knowledge Base with data isolation:
+
+- Single Knowledge Base across multiple bots
+- Data filtered by Bot ID metadata
+- Significantly reduces account limits
+- Default for new bots
+
+<Note>
+Multi-tenant mode is the default for new bots. To migrate existing bots, change the bot's knowledge settings to "Create a tenant in a shared Knowledge Base."
+</Note>
+
+<Accordion title="Bulk Migration to Multi-Tenant">
+To migrate multiple bots to multi-tenant mode:
+
+```bash
+aws dynamodb execute-statement --statement \
+  "UPDATE \"$BotTableNameV3\" \
+   SET BedrockKnowledgeBase.type='shared' \
+   SET SyncStatus='QUEUED' \
+   WHERE PK='$UserID' AND SK='BOT#$BotID'"
+
+# Repeat for all target bots, then start sync:
+aws stepfunctions start-execution \
+  --state-machine-arn $EmbeddingStateMachineArn
+```
+</Accordion>
+
+## Adding Knowledge to Bots
+
+### Via UI
+
+1. Create or edit a bot
+2. Navigate to the **Knowledge** section
+3. Add your knowledge sources:
+   - Upload files directly
+   - Enter web URLs
+   - Provide sitemap URLs
+   - Reference S3 URLs
+
+### Via API
+
+```python
+# POST /bot
+{
+  "title": "My Bot",
+  "instruction": "...",
+  "knowledge": {
+    "source_urls": ["https://example.com/docs"],
+    "sitemap_urls": ["https://example.com/sitemap.xml"],
+    "filenames": ["guide.pdf", "manual.docx"],
+    "s3_urls": ["s3://my-bucket/documents/data.pdf"]
+  }
+}
+```
+
+## Ingestion Pipeline
+
+When you add knowledge sources:
+
+1. **Queue**: Bot sync status set to `QUEUED`
+2. **Download**: Step Functions downloads/fetches content
+3. **Parse**: Documents are parsed and chunked
+4. **Embed**: Text chunks converted to vectors
+5. **Index**: Vectors stored in OpenSearch Serverless
+6. **Complete**: Sync status set to `SUCCEEDED`
+
+<Note>
+Ingestion time varies based on document size and quantity. Monitor the bot's sync status to know when it's ready.
+</Note>
+
+## Chunking Strategies
+
+Control how documents are split for embedding:
+
+### Fixed-Size Chunking (Default)
+
+```python
+chunking_configuration = {
+  "chunking_strategy": "fixed_size",
+  "fixed_size_chunking_configuration": {
+    "max_tokens": 300,
+    "overlap_percentage": 20
+  }
+}
+```
+
+### No Chunking
+
+Keep documents as single chunks (for small documents):
+
+```python
+chunking_configuration = {
+  "chunking_strategy": "none"
+}
+```
+
+### Semantic Chunking
+
+Split based on semantic boundaries:
+
+```python
+chunking_configuration = {
+  "chunking_strategy": "semantic",
+  "semantic_chunking_configuration": {
+    "max_tokens": 300,
+    "buffer_size": 0,
+    "breakpoint_percentile_threshold": 95
+  }
+}
+```
+
+### Hierarchical Chunking
+
+Create parent-child chunk relationships:
+
+```python
+chunking_configuration = {
+  "chunking_strategy": "hierarchical",
+  "hierarchical_chunking_configuration": {
+    "level_configurations": [
+      {"max_tokens": 1500},  # Parent level
+      {"max_tokens": 300}    # Child level
+    ],
+    "overlap_tokens": 60
+  }
+}
+```
+
+<Accordion title="Choosing a Chunking Strategy">
+  - **Fixed-size**: Good default for most documents
+  - **No chunking**: Small documents, structured data
+  - **Semantic**: Long-form content where context matters
+  - **Hierarchical**: Complex documents with nested sections
+</Accordion>
+
+## Advanced Parsing
+
+Enable foundation model parsing for better extraction:
+
+```python
+parsing_model = "anthropic.claude-3-sonnet-20240229-v1:0"
+```
+
+Benefits:
+- Better handling of complex layouts
+- Improved table and chart extraction
+- Enhanced multi-column processing
+
+<Note>
+Advanced parsing incurs additional costs but significantly improves extraction quality for complex documents.
+</Note>
+
+## Importing Existing Knowledge Bases
+
+Connect to an existing Amazon Bedrock Knowledge Base:
+
+```python
+bedrock_knowledge_base = {
+  "exist_knowledge_base_id": "ABCDEF123",
+  "type": None  # Not managed by Bedrock Chat
+}
+```
+
+Use cases:
+- Reuse existing Knowledge Bases
+- Share knowledge across applications
+- Use externally managed data sources
+
+## Retrieval at Query Time
+
+When a user sends a message:
+
+1. Query is embedded using Amazon Titan
+2. Vector search finds similar chunks
+3. Top-k chunks (default: 5) retrieved
+4. Chunks added to prompt context
+5. Model generates response
+
+### Displaying Retrieved Chunks
+
+Show users which sources were used:
+
+```python
+display_retrieved_chunks = True
+```
+
+This adds source citations to responses, improving transparency and trust.
+
+## Contextual Grounding with Guardrails
+
+Reduce hallucinations using Bedrock Guardrails:
+
+```python
+bedrock_guardrails = {
+  "is_guardrail_enabled": True,
+  "guardrail_arn": "arn:aws:bedrock:...",
+  "guardrail_version": "1"
+}
+```
+
+Guardrails check if responses are grounded in retrieved knowledge and block or filter ungrounded content.
+
+## OpenSearch Serverless Configuration
+
+### Replicas
+
+Control availability and cost with replicas:
+
+```json
+{
+  "enableRagReplicas": true  // Production
+  // or
+  "enableRagReplicas": false  // Dev/Test
+}
+```
+
+- **Enabled**: 2 OCUs minimum, higher availability
+- **Disabled**: 1 OCU minimum, lower cost
+
+<Note>
+As of June 2024, OpenSearch Serverless supports 0.5 OCU, reducing entry costs. It automatically scales based on workload.
+</Note>
+
+### Collection Language
+
+Optimize text analysis for your content language:
+
+```json
+{
+  "botStoreLanguage": "en"  // English (default)
+  // or "ja", "es", "fr", etc.
+}
+```
+
+## Updating Knowledge
+
+Modify knowledge sources anytime:
+
+1. Edit the bot
+2. Add/remove knowledge sources
+3. Save changes
+
+This triggers a new ingestion:
+- Sync status → `QUEUED`
+- Old knowledge remains available during sync
+- Sync status → `SUCCEEDED` when complete
+
+## Performance Optimization
+
+<CardGroup cols={2}>
+  <Card title="Chunk Size" icon="scissors">
+    Smaller chunks (200-300 tokens) for precise retrieval. Larger chunks (500-1000) for more context.
+  </Card>
+  
+  <Card title="Overlap" icon="layer-group">
+    Use 10-20% overlap to avoid losing context at chunk boundaries.
+  </Card>
+  
+  <Card title="Document Quality" icon="star">
+    Clean, well-structured documents improve retrieval accuracy. Remove boilerplate and noise.
+  </Card>
+  
+  <Card title="Query Optimization" icon="magnifying-glass">
+    Encourage users to be specific in queries for better retrieval results.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<Accordion title="Sync Status: FAILED">
+Check `sync_status_reason` for error details. Common issues:
+- Invalid URLs or file formats
+- Permission errors for S3 access
+- Parsing failures for complex documents
+
+Fix the issue and save the bot again to retry.
+</Accordion>
+
+<Accordion title="Poor Retrieval Results">
+- Try different chunking strategies
+- Enable advanced parsing for complex docs
+- Increase chunk overlap
+- Improve document structure and formatting
+</Accordion>
+
+<Accordion title="High Costs">
+- Use multi-tenant Knowledge Bases
+- Disable replicas for dev environments
+- Reduce chunk count by using larger chunks
+- Enable prompt caching
+</Accordion>
+
+## Example Configurations
+
+<Accordion title="Documentation Bot">
+```python
+{
+  "knowledge": {
+    "sitemap_urls": ["https://docs.example.com/sitemap.xml"]
+  },
+  "bedrock_knowledge_base": {
+    "type": "shared",
+    "chunking_configuration": {
+      "chunking_strategy": "semantic",
+      "semantic_chunking_configuration": {
+        "max_tokens": 300,
+        "breakpoint_percentile_threshold": 95
+      }
+    }
+  },
+  "display_retrieved_chunks": True
+}
+```
+</Accordion>
+
+<Accordion title="Research Assistant">
+```python
+{
+  "knowledge": {
+    "filenames": ["research_papers.pdf"],
+    "source_urls": ["https://arxiv.org/paper1", "https://arxiv.org/paper2"]
+  },
+  "bedrock_knowledge_base": {
+    "type": "shared",
+    "chunking_configuration": {
+      "chunking_strategy": "hierarchical",
+      "hierarchical_chunking_configuration": {
+        "level_configurations": [
+          {"max_tokens": 1500},
+          {"max_tokens": 300}
+        ],
+        "overlap_tokens": 60
+      }
+    },
+    "parsing_model": "anthropic.claude-3-sonnet-20240229-v1:0"
+  },
+  "display_retrieved_chunks": True
+}
+```
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Create Custom Bot" href="/features/custom-bots" icon="robot">
+    Build a bot with knowledge integration
+  </Card>
+  
+  <Card title="Enable Agents" href="/features/agents" icon="wand-magic-sparkles">
+    Combine knowledge with tool usage
+  </Card>
+  
+  <Card title="Configure Guardrails" href="/features/custom-bots#guardrails" icon="shield">
+    Add content filters and grounding checks
+  </Card>
+  
+  <Card title="Bot Store" href="/features/bot-store" icon="store">
+    Share knowledge-powered bots
+  </Card>
+</CardGroup>

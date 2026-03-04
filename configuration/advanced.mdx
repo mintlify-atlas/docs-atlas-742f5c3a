@@ -1,0 +1,363 @@
+---
+title: Advanced Settings
+description: Configure advanced features including Lambda SnapStart, replicas, and developer settings
+---
+
+Bedrock Chat provides advanced configuration options for performance optimization, availability, and development workflows.
+
+## Lambda SnapStart
+
+AWS Lambda SnapStart reduces cold start times for Lambda functions by pre-initializing execution environments.
+
+<ParamField path="enableLambdaSnapStart" type="boolean" default="true">
+  Enable Lambda SnapStart for faster cold start performance. Improves response times and user experience.
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "enableLambdaSnapStart": true
+  }
+}
+```
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("default", {
+  enableLambdaSnapStart: true,
+});
+```
+
+**Deployment script:**
+```bash
+./bin.sh --enable-lambda-snapstart
+```
+
+### Lambda SnapStart Considerations
+
+<Warning>
+Lambda SnapStart has the following limitations:
+
+1. **Regional availability:** Not available in all AWS regions. Check [supported regions](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html#snapstart-supported-regions) before enabling.
+2. **Pricing:** Additional charges apply based on cache size. See [SnapStart pricing](https://aws.amazon.com/lambda/pricing/#SnapStart_Pricing).
+3. **Python support:** Currently only supports Python functions.
+</Warning>
+
+**When to disable:**
+- Deploying to a region without SnapStart support
+- Cost optimization for low-traffic deployments
+- Troubleshooting initialization issues
+
+**Disable for unsupported regions:**
+```json
+{
+  "context": {
+    "enableLambdaSnapStart": false
+  }
+}
+```
+
+## RAG Replicas Configuration
+
+Control replica settings for Knowledge Bases using Amazon OpenSearch Serverless.
+
+<ParamField path="enableRagReplicas" type="boolean" default="true">
+  Enable additional replicas for the RAG database (Knowledge Bases). Enhances availability for production but increases costs.
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "enableRagReplicas": true
+  }
+}
+```
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("dev", {
+  enableRagReplicas: false, // Cost-saving for dev
+});
+
+bedrockChatParams.set("prod", {
+  enableRagReplicas: true, // High availability for prod
+});
+```
+
+### Replica Configuration Details
+
+**With replicas enabled (production):**
+- **Minimum capacity:** 2 OCUs (OpenSearch Compute Units)
+- **Availability:** High availability with automatic failover
+- **Cost:** Higher operational costs
+- **Use case:** Production workloads requiring uptime
+
+**With replicas disabled (development):**
+- **Minimum capacity:** 1 OCU
+- **Availability:** Standard availability
+- **Cost:** Lower operational costs
+- **Use case:** Development, testing, proof-of-concept
+
+<Note>
+As of June 2024, OpenSearch Serverless supports 0.5 OCU minimum, further reducing entry costs. Production deployments start with 2 OCUs, while dev/test workloads use 1 OCU. OpenSearch Serverless automatically scales based on demand.
+</Note>
+
+### Bot Store Replicas
+
+<ParamField path="enableBotStoreReplicas" type="boolean" default="false">
+  Enable standby replicas for the OpenSearch Serverless collection used by bot store. Improves availability but increases costs.
+</ParamField>
+
+**Configure in cdk.json:**
+```json
+{
+  "context": {
+    "enableBotStore": true,
+    "enableBotStoreReplicas": true
+  }
+}
+```
+
+<Warning>
+You **cannot update** `enableBotStoreReplicas` after the collection is created. The collection continues to use the original value. Plan this setting carefully before initial deployment.
+</Warning>
+
+## Multi-Tenant Knowledge Base
+
+Bedrock Chat supports multi-tenant mode to work around the 100 Knowledge Base limit per AWS account.
+
+### How Multi-Tenant Mode Works
+
+- **Shared Knowledge Base:** Multiple bots share a single Knowledge Base with common settings
+- **Metadata filtering:** Files uploaded by each bot are filtered using Bot ID metadata
+- **Default behavior:** Newly created bots have multi-tenant mode enabled by default
+- **Migration:** Existing bots can be migrated to multi-tenant mode
+
+### Migrate Bots to Multi-Tenant Mode
+
+**Single bot migration:**
+```bash
+aws dynamodb execute-statement --statement "
+  UPDATE \"$BotTableNameV3\"
+  SET BedrockKnowledgeBase.type='shared'
+  SET SyncStatus='QUEUED'
+  WHERE PK='$UserID' AND SK='BOT#$BotID'
+"
+
+aws stepfunctions start-execution --state-machine-arn $EmbeddingStateMachineArn
+```
+
+**Bulk migration:**
+```bash
+# Execute for all target bots
+for bot in $BOT_LIST; do
+  aws dynamodb execute-statement --statement "
+    UPDATE \"$BotTableNameV3\"
+    SET BedrockKnowledgeBase.type='shared'
+    SET SyncStatus='QUEUED'
+    WHERE PK='$UserID' AND SK='BOT#$bot'
+  "
+done
+
+aws stepfunctions start-execution --state-machine-arn $EmbeddingStateMachineArn
+```
+
+<Note>
+New bots use multi-tenant mode by default. To use dedicated Knowledge Bases, change the bot's knowledge settings to "Create a dedicated Knowledge Base."
+</Note>
+
+## Development Access
+
+Configure IAM role for development and debugging access.
+
+<ParamField path="devAccessIamRoleArn" type="string" default="">
+  ARN of an IAM role granted access to development resources. Used for debugging and development workflows.
+</ParamField>
+
+**Configure in parameter.ts:**
+```typescript
+bedrockChatParams.set("dev", {
+  devAccessIamRoleArn: "arn:aws:iam::123456789012:role/DeveloperRole",
+});
+```
+
+<Warning>
+Never set `devAccessIamRoleArn` in production environments. This grants elevated access to AWS resources.
+</Warning>
+
+## Environment-Based Configuration
+
+Define environment-specific advanced settings using `parameter.ts`.
+
+**Example - Development environment (cost-optimized):**
+```typescript
+bedrockChatParams.set("dev", {
+  // Performance
+  enableLambdaSnapStart: false,
+
+  // Availability (cost-saving)
+  enableRagReplicas: false,
+  enableBotStoreReplicas: false,
+
+  // Development access
+  devAccessIamRoleArn: "arn:aws:iam::123456789012:role/DevRole",
+});
+```
+
+**Example - Production environment (high-availability):**
+```typescript
+bedrockChatParams.set("prod", {
+  // Performance
+  enableLambdaSnapStart: true,
+
+  // Availability (production-grade)
+  enableRagReplicas: true,
+  enableBotStoreReplicas: true,
+
+  // Security
+  allowedIpV4AddressRanges: ["203.0.113.0/24"],
+  selfSignUpEnabled: false,
+
+  // No development access in production
+  devAccessIamRoleArn: "",
+});
+```
+
+**Deploy specific environment:**
+```bash
+# Development
+npx cdk deploy --all -c envName=dev
+
+# Production
+npx cdk deploy --all -c envName=prod
+```
+
+## Environment Identification
+
+All resources in multi-environment deployments are tagged for identification.
+
+**Tags applied:**
+- `CDKEnvironment: dev`
+- `CDKEnvironment: prod`
+- `CDKEnvironment: default`
+
+**Stack naming:**
+- Main stacks: `dev-BedrockChatStack`, `prod-BedrockChatStack`
+- Bot stacks: `BrChatKbStack*` (no environment prefix)
+- API stacks: `ApiPublishmentStack*` (no environment prefix)
+
+**Resource naming:**
+- Some resources: `dev_ddb_export`, `dev-FrontendWebAcl`
+- Most resources: Original names within environment-specific stacks
+
+<Note>
+Use the `CDKEnvironment` tag to identify which environment a resource belongs to.
+</Note>
+
+## CDK Context Overrides
+
+Override advanced settings during deployment without modifying configuration files:
+
+```bash
+./bin.sh --cdk-json-override '{
+  "context": {
+    "enableLambdaSnapStart": true,
+    "enableRagReplicas": true,
+    "enableBotStoreReplicas": false,
+    "enableBedrockGlobalInference": true,
+    "enableBedrockCrossRegionInference": true
+  }
+}'
+```
+
+Override values take precedence over `cdk.json` settings.
+
+## Regional Deployment Considerations
+
+### Supported Regions for Full Features
+
+Deploy Bedrock Chat in regions where OpenSearch Serverless and Ingestion APIs are available for full bot and knowledge base functionality.
+
+**Supported regions (as of August 2025):**
+- us-east-1, us-east-2, us-west-1, us-west-2
+- ap-south-1, ap-northeast-1, ap-northeast-2, ap-southeast-1, ap-southeast-2
+- ca-central-1
+- eu-central-1, eu-west-1, eu-west-2, eu-south-2, eu-north-1
+- sa-east-1
+
+Check the [OpenSearch Serverless documentation](https://docs.aws.amazon.com/general/latest/gr/opensearch-service.html) for current region availability.
+
+### Bedrock Region Configuration
+
+The `bedrockRegion` parameter specifies where Bedrock API calls are made:
+
+```typescript
+bedrockChatParams.set("default", {
+  bedrockRegion: "us-east-1",
+});
+```
+
+Choose a region where [Bedrock is available](https://docs.aws.amazon.com/general/latest/gr/bedrock.html).
+
+## Resource Removal
+
+Properly remove Bedrock Chat resources:
+
+**Using CDK:**
+```bash
+npx cdk destroy
+```
+
+**Manual cleanup:**
+1. Access [CloudFormation console](https://console.aws.amazon.com/cloudformation/home)
+2. Delete `BedrockChatStack`
+3. Delete `FrontendWafStack` (in us-east-1 region)
+4. Delete environment-specific stacks (e.g., `dev-BedrockChatStack`)
+
+<Warning>
+Deleting stacks removes all associated resources including:
+- User data in DynamoDB
+- Custom bots and knowledge bases
+- Conversation history
+- S3 buckets (if empty)
+
+Ensure you have backups before destroying stacks.
+</Warning>
+
+## Performance Optimization Summary
+
+| Setting | Development | Production |
+|---------|-------------|------------|
+| `enableLambdaSnapStart` | `false` (cost) | `true` (performance) |
+| `enableRagReplicas` | `false` (cost) | `true` (availability) |
+| `enableBotStoreReplicas` | `false` (cost) | `true` (availability) |
+| `enableBedrockGlobalInference` | `true` | `true` |
+| `enableBedrockCrossRegionInference` | `true` | `true` |
+
+## Troubleshooting Advanced Settings
+
+### Lambda SnapStart Issues
+
+**Problem:** Deployment fails with SnapStart error
+
+**Solution:** Disable SnapStart if deploying to an unsupported region:
+```json
+{"enableLambdaSnapStart": false}
+```
+
+### OpenSearch Replica Issues
+
+**Problem:** Cannot change `enableBotStoreReplicas` after deployment
+
+**Solution:** This is by design. Destroy and recreate the stack with the desired setting.
+
+### Multi-Tenant Migration Issues
+
+**Problem:** Bots fail to sync after migration
+
+**Solution:** Ensure the Step Functions state machine is triggered:
+```bash
+aws stepfunctions start-execution --state-machine-arn $EmbeddingStateMachineArn
+```

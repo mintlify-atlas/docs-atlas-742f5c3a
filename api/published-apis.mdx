@@ -1,0 +1,557 @@
+---
+title: Published API Endpoints
+description: API endpoints for publishing bots as standalone APIs and managing API keys
+---
+
+## Overview
+
+Published API endpoints allow you to publish bots as standalone APIs with their own endpoints, API keys, rate limits, and CORS configuration. This is ideal for integrating bots into external applications.
+
+## Bot Publication Flow
+
+1. **Publish a Bot**: Create an API Gateway deployment for a shared bot
+2. **Create API Keys**: Generate API keys for authentication
+3. **Use Published API**: Call the bot through its dedicated endpoint
+4. **Manage & Monitor**: Update settings or delete the publication
+
+---
+
+## Publish Bot
+
+<api-endpoint>
+  <api-endpoint-heading method="POST" path="/bot/{bot_id}/publication" />
+  <api-endpoint-description>
+    Publish a bot as a standalone API. This creates an API Gateway deployment with rate limiting and CORS configuration.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The bot ID to publish (must be a shared bot you own)
+</ParamField>
+
+### Request Body
+
+<ParamField body="stage" type="string">
+  API Gateway stage name (e.g., `"dev"`, `"stg"`, `"prd"`). Defaults to `"api"` if not specified.
+</ParamField>
+
+<ParamField body="quota" type="object">
+  Request quota configuration
+  
+  <Expandable title="quota properties">
+    <ParamField body="limit" type="integer">
+      Maximum number of requests allowed in the period (must be positive). If null, no quota is applied.
+    </ParamField>
+    
+    <ParamField body="offset" type="integer">
+      Offset for quota calculation
+    </ParamField>
+    
+    <ParamField body="period" type="string">
+      Time period for quota: `"DAY"`, `"WEEK"`, or `"MONTH"`. Required if limit is set.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="throttle" type="object">
+  Request throttling configuration
+  
+  <Expandable title="throttle properties">
+    <ParamField body="rate_limit" type="float">
+      Maximum requests per second (must be positive). If null, no throttling is applied.
+    </ParamField>
+    
+    <ParamField body="burst_limit" type="integer">
+      Maximum burst of concurrent requests (must be positive). Required if rate_limit is set.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="allowed_origins" type="array" required>
+  Array of allowed CORS origins. Each must start with `"http://"` or `"https://"`, or be `"*"` for all origins.
+</ParamField>
+
+### Requirements
+
+- Bot must be shared (not private)
+- Bot must not already be published
+- No CloudFormation deployment can be in progress
+
+### Example Request
+
+```json
+{
+  "stage": "prod",
+  "quota": {
+    "limit": 10000,
+    "offset": 0,
+    "period": "MONTH"
+  },
+  "throttle": {
+    "rate_limit": 10.0,
+    "burst_limit": 20
+  },
+  "allowed_origins": [
+    "https://app.example.com",
+    "https://dashboard.example.com"
+  ]
+}
+```
+
+---
+
+## Get Bot Publication
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/bot/{bot_id}/publication" />
+  <api-endpoint-description>
+    Get publication details for a bot. Returns deployment status, endpoint URL, and API key IDs.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The published bot ID
+</ParamField>
+
+### Response
+
+<ResponseField name="stage" type="string">
+  The API Gateway stage (e.g., `"dev"`, `"stg"`, `"prd"`)
+</ResponseField>
+
+<ResponseField name="quota" type="object">
+  Quota configuration
+</ResponseField>
+
+<ResponseField name="throttle" type="object">
+  Throttling configuration
+</ResponseField>
+
+<ResponseField name="allowed_origins" type="array">
+  Array of allowed CORS origins
+</ResponseField>
+
+<ResponseField name="cfn_status" type="string">
+  CloudFormation deployment status
+</ResponseField>
+
+<ResponseField name="codebuild_id" type="string">
+  CodeBuild project ID for the deployment
+</ResponseField>
+
+<ResponseField name="codebuild_status" type="string">
+  CodeBuild status: `"IN_PROGRESS"`, `"SUCCEEDED"`, `"FAILED"`, etc.
+</ResponseField>
+
+<ResponseField name="endpoint" type="string">
+  API Gateway endpoint URL (null until deployment succeeds)
+</ResponseField>
+
+<ResponseField name="api_key_ids" type="array">
+  Array of API key IDs created for this publication
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "stage": "prod",
+  "quota": {
+    "limit": 10000,
+    "offset": 0,
+    "period": "MONTH"
+  },
+  "throttle": {
+    "rate_limit": 10.0,
+    "burst_limit": 20
+  },
+  "allowed_origins": [
+    "https://app.example.com",
+    "https://dashboard.example.com"
+  ],
+  "cfn_status": "CREATE_COMPLETE",
+  "codebuild_id": "bedrock-chat-bot-publication:12345678",
+  "codebuild_status": "SUCCEEDED",
+  "endpoint": "https://abcd1234.execute-api.us-east-1.amazonaws.com/prod",
+  "api_key_ids": ["key123", "key456"]
+}
+```
+
+### Notes
+
+- Returns 404 if the bot is not published
+- If CodeBuild has not succeeded, only `codebuild_id`, `codebuild_status`, and `cfn_status` will have values
+- Can be used by both owner and admin
+
+---
+
+## Delete Bot Publication
+
+<api-endpoint>
+  <api-endpoint-heading method="DELETE" path="/bot/{bot_id}/publication" />
+  <api-endpoint-description>
+    Delete a bot publication, removing the API Gateway deployment and all associated API keys.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The published bot ID to unpublish
+</ParamField>
+
+### Requirements
+
+- Bot must be published
+- CodeBuild must be completed (status must be `"SUCCEEDED"` or `"FAILED"`)
+- Cannot delete while deployment is in progress
+
+---
+
+## Create API Key
+
+<api-endpoint>
+  <api-endpoint-heading method="POST" path="/bot/{bot_id}/publication/api-key" />
+  <api-endpoint-description>
+    Create a new API key for a published bot. Only the owner can create keys.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The published bot ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="description" type="string" required>
+  Description of the API key (e.g., purpose or application name)
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Unique API key identifier
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  API key description
+</ResponseField>
+
+<ResponseField name="value" type="string">
+  The API key value (only returned on creation)
+</ResponseField>
+
+<ResponseField name="enabled" type="boolean">
+  Whether the API key is enabled
+</ResponseField>
+
+<ResponseField name="created_date" type="integer">
+  Unix timestamp of creation
+</ResponseField>
+
+### Example Request
+
+```json
+{
+  "description": "Production web app key"
+}
+```
+
+### Example Response
+
+```json
+{
+  "id": "key_abc123xyz",
+  "description": "Production web app key",
+  "value": "sk_live_abcdefghijklmnopqrstuvwxyz123456789",
+  "enabled": true,
+  "created_date": 1704067200
+}
+```
+
+<Warning>
+  **Important**: The API key value is only returned once during creation. Store it securely - you won't be able to retrieve it again.
+</Warning>
+
+---
+
+## Get API Key
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/bot/{bot_id}/publication/api-key/{api_key_id}" />
+  <api-endpoint-description>
+    Get details about a specific API key. Only the owner can access key details.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The published bot ID
+</ParamField>
+
+<ParamField path="api_key_id" type="string" required>
+  The API key ID to retrieve
+</ParamField>
+
+### Response
+
+Returns API key details (same structure as create response, but `value` is masked).
+
+---
+
+## Delete API Key
+
+<api-endpoint>
+  <api-endpoint-heading method="DELETE" path="/bot/{bot_id}/publication/api-key/{api_key_id}" />
+  <api-endpoint-description>
+    Delete an API key. Can be used by both owner and admin.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Path Parameters
+
+<ParamField path="bot_id" type="string" required>
+  The published bot ID
+</ParamField>
+
+<ParamField path="api_key_id" type="string" required>
+  The API key ID to delete
+</ParamField>
+
+---
+
+## Using Published Bot APIs
+
+Once a bot is published, it gets its own API endpoint. Here's how to use it:
+
+### Base URL
+
+The base URL is returned in the publication endpoint:
+
+```
+https://{api-id}.execute-api.{region}.amazonaws.com/{stage}
+```
+
+### Authentication
+
+Include the API key in the request header:
+
+```http
+x-api-key: sk_live_abcdefghijklmnopqrstuvwxyz123456789
+```
+
+### Send Message
+
+<api-endpoint>
+  <api-endpoint-heading method="POST" path="/conversation" />
+  <api-endpoint-description>
+    Send a chat message to the published bot. Returns a message ID for async processing.
+  </api-endpoint-description>
+</api-endpoint>
+
+#### Request Body
+
+<ParamField body="conversation_id" type="string">
+  Conversation ID (auto-generated if not provided)
+</ParamField>
+
+<ParamField body="message" type="object" required>
+  Message object
+  
+  <Expandable title="message properties">
+    <ParamField body="content" type="array" required>
+      Array of content objects (text, image, etc.)
+    </ParamField>
+    
+    <ParamField body="model" type="string" required>
+      Model to use (e.g., `"claude-v3.5-sonnet"`)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="continue_generate" type="boolean" default="false">
+  Continue generation from last message
+</ParamField>
+
+<ParamField body="enable_reasoning" type="boolean" default="false">
+  Enable reasoning mode
+</ParamField>
+
+#### Response
+
+<ResponseField name="conversation_id" type="string">
+  The conversation identifier
+</ResponseField>
+
+<ResponseField name="message_id" type="string">
+  The message ID for the response
+</ResponseField>
+
+#### Example Request
+
+```bash
+curl -X POST https://abcd1234.execute-api.us-east-1.amazonaws.com/prod/conversation \
+  -H "x-api-key: sk_live_abcdefghijklmnopqrstuvwxyz123456789" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "content": [
+        {
+          "content_type": "text",
+          "body": "Hello, how can you help me?"
+        }
+      ],
+      "model": "claude-v3.5-sonnet"
+    }
+  }'
+```
+
+#### Example Response
+
+```json
+{
+  "conversation_id": "01HQ4V8JFBK9PZXQ8YJKMND8GA",
+  "message_id": "01HQ4V8JFBK9PZXQ8YJKMND8GB"
+}
+```
+
+<Info>
+  **Async Processing**: The message is queued for processing via SQS. Use the returned `message_id` to retrieve the response.
+</Info>
+
+---
+
+### Get Conversation
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/conversation/{conversation_id}" />
+  <api-endpoint-description>
+    Get the complete conversation history.
+  </api-endpoint-description>
+</api-endpoint>
+
+#### Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  The conversation ID
+</ParamField>
+
+#### Response
+
+Returns the full conversation object with all messages (same structure as the main conversation API).
+
+---
+
+### Get Specific Message
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/conversation/{conversation_id}/{message_id}" />
+  <api-endpoint-description>
+    Get a specific message response by ID.
+  </api-endpoint-description>
+</api-endpoint>
+
+#### Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  The conversation ID
+</ParamField>
+
+<ParamField path="message_id" type="string" required>
+  The message ID from the send message response
+</ParamField>
+
+#### Response
+
+<ResponseField name="conversation_id" type="string">
+  The conversation identifier
+</ResponseField>
+
+<ResponseField name="message" type="object">
+  The bot's response message
+</ResponseField>
+
+<ResponseField name="create_time" type="float">
+  Unix timestamp of conversation creation
+</ResponseField>
+
+---
+
+## Rate Limiting
+
+Published APIs enforce the configured rate limits:
+
+### Quota Limits
+
+- Tracks total requests over a time period (DAY/WEEK/MONTH)
+- Returns HTTP 429 when quota is exceeded
+- Resets at the beginning of each period
+
+### Throttling
+
+- `rate_limit`: Maximum requests per second
+- `burst_limit`: Maximum concurrent requests
+- Returns HTTP 429 when throttle is exceeded
+
+### Rate Limit Headers
+
+Responses include rate limit information:
+
+```http
+X-RateLimit-Limit: 10
+X-RateLimit-Remaining: 8
+X-RateLimit-Reset: 1704067200
+```
+
+---
+
+## CORS Configuration
+
+The `allowed_origins` setting controls which domains can access the API from browsers:
+
+- Specific origins: `["https://app.example.com", "https://dashboard.example.com"]`
+- All origins: `["*"]` (use with caution in production)
+
+CORS headers are automatically included in responses:
+
+```http
+Access-Control-Allow-Origin: https://app.example.com
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, x-api-key
+```
+
+---
+
+## Best Practices
+
+1. **API Key Security**
+   - Store API keys securely (environment variables, secrets manager)
+   - Never commit keys to version control
+   - Rotate keys periodically
+   - Use separate keys for different environments
+
+2. **Rate Limiting**
+   - Set appropriate limits based on expected usage
+   - Monitor usage to adjust limits as needed
+   - Implement exponential backoff in client applications
+
+3. **CORS Configuration**
+   - Specify exact origins in production (avoid `*`)
+   - Update origins when deploying to new domains
+
+4. **Monitoring**
+   - Track API key usage
+   - Monitor rate limit violations
+   - Check CodeBuild deployment status
+
+5. **Deployment**
+   - Wait for `codebuild_status` to be `SUCCEEDED` before using
+   - Use different stages for development and production
+   - Test with development keys before deploying

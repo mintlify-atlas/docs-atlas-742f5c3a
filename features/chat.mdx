@@ -1,0 +1,180 @@
+---
+title: Multi-Model Chat Interface
+description: Chat with multiple AI models powered by Amazon Bedrock
+---
+
+Bedrock Chat provides a powerful, multi-model chat interface that lets you interact with various large language models (LLMs) through a single, unified platform. Built on Amazon Bedrock, you can seamlessly switch between different AI models without needing to manage infrastructure or API keys.
+
+## Supported Models
+
+Bedrock Chat supports a wide range of foundation models available through Amazon Bedrock:
+
+<CardGroup cols={2}>
+  <Card title="Claude Models" icon="robot">
+    - Claude Opus 4/4.1/4.5
+    - Claude Sonnet 4/4.5
+    - Claude Sonnet 3.5/3.5 v2/3.7
+    - Claude Haiku 3/3.5/4.5
+  </Card>
+  
+  <Card title="Amazon Nova" icon="aws">
+    - Nova Pro
+    - Nova Lite
+    - Nova Micro
+  </Card>
+  
+  <Card title="Meta Llama" icon="meta">
+    - Llama 3.3 70B Instruct
+    - Llama 3.2 (1B, 3B, 11B, 90B)
+  </Card>
+  
+  <Card title="Other Models" icon="sparkles">
+    - Mistral 7B/Large/Large 2
+    - Mixtral 8x7B
+    - DeepSeek R1
+    - OpenAI GPT-OSS 20B/120B
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Model Selection
+
+Switch between models during your conversation to compare responses or leverage specific model strengths:
+
+- **Claude Sonnet 3.7**: Extended thinking capabilities with up to 64K tokens
+- **Amazon Nova Pro**: Cost-effective general-purpose model
+- **Claude Haiku**: Fast responses for simple queries
+- **DeepSeek R1**: Advanced reasoning capabilities
+
+<Note>
+The default model for new chats is `claude-v3.7-sonnet`, but administrators can configure a different default model in the deployment settings.
+</Note>
+
+### Conversation Management
+
+- **Persistent History**: All conversations are automatically saved to Amazon DynamoDB
+- **Conversation Titles**: Automatically generated using AI (default: `claude-v3-haiku`)
+- **Search**: Find past conversations quickly
+- **Organization**: Star important conversations for easy access
+
+### Generation Parameters
+
+Fine-tune model behavior with adjustable parameters:
+
+```typescript
+{
+  maxTokens: 2000,        // Max: 64,000 for Claude 3.7
+  temperature: 0.6,       // 0-1, controls randomness
+  topP: 0.999,           // 0-1, nucleus sampling
+  topK: 128,             // 0-500, limits token selection
+  stopSequences: [],     // Custom stop sequences
+  reasoningParams: {
+    budgetTokens: 1024   // For extended thinking models
+  }
+}
+```
+
+<Accordion title="Parameter Details">
+  - **Max Tokens**: Controls response length (1-64,000). Claude 3.7 with extended thinking supports up to 64K tokens.
+  - **Temperature**: Higher values (0.8-1.0) make output more creative; lower values (0.1-0.3) make it more focused.
+  - **Top P**: Nucleus sampling threshold. Lower values make output more deterministic.
+  - **Top K**: Limits the model to consider only top K tokens. Set to 0 to disable.
+  - **Budget Tokens**: For extended thinking models, controls reasoning depth (min: 1024, max: 64,000).
+</Accordion>
+
+## Cross-Region and Global Inference
+
+Bedrock Chat supports both **Cross-Region** and **Global Inference** for enhanced throughput and resilience:
+
+- **Global Inference**: Routes requests to optimal regions worldwide based on latency and availability
+- **Cross-Region Inference**: Routes requests within the same AWS region (e.g., within the US)
+
+These features are enabled by default but can be configured during deployment:
+
+```json
+{
+  "enableBedrockGlobalInference": true,
+  "enableBedrockCrossRegionInference": true
+}
+```
+
+## Streaming Responses
+
+All model interactions use streaming for real-time response generation:
+
+- Responses appear token-by-token as they're generated
+- Cancel generation at any time
+- Visual indicators for agent thinking and tool usage
+
+## Prompt Caching
+
+For custom bots with instructions or knowledge bases, prompt caching reduces costs and latency by reusing processed prompts:
+
+<Note>
+Prompt caching is enabled by default for custom bots but can be disabled if needed.
+</Note>
+
+## Multi-Tenancy and Permissions
+
+Conversations are isolated by user:
+
+- Each user has their own conversation history
+- Conversations are not shared between users
+- User authentication via Amazon Cognito
+- Optional IP address restrictions via AWS WAF
+
+## Architecture
+
+The chat interface leverages serverless AWS services:
+
+```
+CloudFront → API Gateway → Lambda (FastAPI) → Bedrock
+                                     ↓
+                                 DynamoDB
+```
+
+- **Frontend**: React + Tailwind CSS served via CloudFront
+- **Backend**: FastAPI on Lambda with WebSocket support
+- **Storage**: DynamoDB for conversation history
+- **AI**: Amazon Bedrock for model inference
+
+## Usage Tips
+
+<CardGroup cols={2}>
+  <Card title="Model Selection" icon="toggle-on">
+    Choose faster models (Haiku, Nova Lite) for simple queries and more powerful models (Opus, Sonnet 3.7) for complex tasks.
+  </Card>
+  
+  <Card title="Context Management" icon="message">
+    Long conversations consume more tokens. Start a new conversation for different topics to optimize costs.
+  </Card>
+  
+  <Card title="Temperature Tuning" icon="temperature-half">
+    Lower temperature (0.1-0.3) for factual responses, higher (0.7-1.0) for creative content.
+  </Card>
+  
+  <Card title="Stop Sequences" icon="stop">
+    Use custom stop sequences to control when the model stops generating (e.g., specific markers or delimiters).
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Create Custom Bots" href="/features/custom-bots" icon="robot">
+    Build bots with custom instructions and personality
+  </Card>
+  
+  <Card title="Add Knowledge" href="/features/knowledge-bases" icon="book">
+    Enhance bots with RAG and custom knowledge
+  </Card>
+  
+  <Card title="Enable Agents" href="/features/agents" icon="wand-magic-sparkles">
+    Give bots tools to perform complex tasks
+  </Card>
+  
+  <Card title="Share in Store" href="/features/bot-store" icon="store">
+    Publish your bots for others to use
+  </Card>
+</CardGroup>

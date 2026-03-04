@@ -1,0 +1,118 @@
+---
+title: Deployment Overview
+description: Choose the right deployment method for Bedrock Chat
+---
+
+Bedrock Chat offers multiple deployment methods to suit different use cases and environments. All deployment methods use AWS CDK internally to provision infrastructure.
+
+## Deployment Methods
+
+Bedrock Chat provides three primary deployment approaches:
+
+### CloudShell Deployment (Recommended for Quick Start)
+
+The easiest way to deploy Bedrock Chat using AWS CloudShell. This method uses the `bin.sh` script and AWS CodeBuild to handle the deployment automatically.
+
+- **Best for**: Quick deployments, testing, and production use
+- **Time**: ~35 minutes
+- **Prerequisites**: AWS account with Bedrock access
+- **Automation**: Fully automated via CodeBuild
+
+[View CloudShell deployment guide →](/deployment/cloudshell)
+
+### Direct CDK Deployment
+
+Deploy directly using AWS CDK from your local machine. This method gives you more control and is ideal for development.
+
+- **Best for**: Development, customization, and CI/CD pipelines
+- **Time**: Variable (depends on your environment)
+- **Prerequisites**: UNIX/Linux, Docker, Node.js runtime
+- **Control**: Full control over the deployment process
+
+[View CDK deployment guide →](/deployment/cdk)
+
+### Multi-Environment Deployment
+
+Deploy multiple environments (dev, staging, prod) from the same codebase using the `parameter.ts` configuration file.
+
+- **Best for**: Organizations managing multiple environments
+- **Configuration**: Type-safe parameter management
+- **Isolation**: Separate resources per environment
+
+[View multi-environment guide →](/deployment/multi-environment)
+
+## Architecture
+
+Bedrock Chat is built on AWS managed services:
+
+- **Amazon DynamoDB**: Conversation history storage
+- **Amazon API Gateway + AWS Lambda**: Backend API (FastAPI with Lambda Web Adapter)
+- **Amazon CloudFront + S3**: Frontend delivery (React, Tailwind CSS)
+- **AWS WAF**: IP address restrictions
+- **Amazon Cognito**: User authentication
+- **Amazon Bedrock**: Foundation models via API
+- **Amazon Bedrock Knowledge Bases**: RAG capabilities
+- **Amazon OpenSearch Serverless**: Vector search backend
+- **Amazon EventBridge Pipes**: Bot deletion events
+- **AWS Step Functions**: Knowledge base ingestion orchestration
+- **Amazon Athena**: Usage analytics
+
+## Prerequisites
+
+Before deploying Bedrock Chat, ensure you have:
+
+### AWS Account Requirements
+
+1. **Bedrock Model Access**: Enable model access in the us-east-1 region
+   - Go to [Bedrock Model access](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess)
+   - Click **Manage model access**
+   - Select the models you want to use
+   - Click **Save changes**
+
+2. **Region Selection**: Deploy in a region where OpenSearch Serverless is available
+   - See [supported regions](/deployment/regions) for the full list
+
+3. **IAM Permissions**: Administrator access or equivalent permissions to create:
+   - CloudFormation stacks
+   - S3 buckets
+   - Lambda functions
+   - CloudFront distributions
+   - Cognito user pools
+   - OpenSearch Serverless collections
+   - IAM roles and policies
+
+### Security Considerations
+
+<Warning>
+By default, Bedrock Chat allows anyone who knows the URL to sign up. For production deployments, you should:
+
+- Add IP address restrictions using `--ipv4-ranges` and `--ipv6-ranges`
+- Disable self-registration with `--disable-self-register`
+- Restrict signup email domains with `--allowed-signup-email-domains`
+</Warning>
+
+## Deployment Outputs
+
+After successful deployment, you'll receive:
+
+- **Frontend URL**: CloudFront distribution URL (e.g., `https://xxxxxxxxx.cloudfront.net`)
+- **User Pool ID**: Cognito user pool for managing users
+- **User Pool Client ID**: Cognito app client ID
+- **Backend API URL**: API Gateway endpoint
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="CloudShell Deployment" icon="cloud" href="/deployment/cloudshell">
+    Deploy quickly using AWS CloudShell
+  </Card>
+  <Card title="CDK Deployment" icon="code" href="/deployment/cdk">
+    Deploy using AWS CDK directly
+  </Card>
+  <Card title="Supported Regions" icon="globe" href="/deployment/regions">
+    Check region availability and requirements
+  </Card>
+  <Card title="Parameters Reference" icon="sliders" href="/deployment/parameters">
+    Explore all deployment parameters
+  </Card>
+</CardGroup>

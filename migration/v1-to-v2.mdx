@@ -1,0 +1,208 @@
+---
+title: V1 to V2 Migration Guide
+description: Migrate from pgvector on Aurora to Amazon Bedrock Knowledge Bases
+---
+
+## Overview
+
+The V2 update introduces a major change by replacing pgvector on Aurora Serverless and ECS-based embedding with Amazon Bedrock Knowledge Bases. This change is not backward compatible.
+
+<Warning>
+**Breaking Change**
+
+Upgrading to V2 will result in the deletion of all Aurora-related resources. Future updates will focus exclusively on V2, with V1 being deprecated.
+</Warning>
+
+<Info>
+**For users who wish to continue using pgvector**: Upgrading to V2 is not recommended. Upgrading to V2 will remove all resources related to pgvector, and future support will no longer be available. Continue using V1 in this case.
+</Info>
+
+## Why Knowledge Bases?
+
+### Improved RAG Accuracy
+
+- **Hybrid Search**: Knowledge Bases use OpenSearch Serverless as the backend, allowing hybrid searches with both full-text and vector search. This leads to better accuracy in responding to questions that include proper nouns, which pgvector struggled with.
+- **Advanced Features**: Supports advanced chunking, parsing options, and web crawling capabilities
+- **Future-Proof**: Knowledge Bases have been generally available since 2024 with continuous feature additions, including S3 bucket import functionality
+
+### Reduced Maintenance
+
+The ECS + Aurora setup depends on numerous libraries for PDF parsing, web crawling, and YouTube transcripts. Managed solutions like Knowledge Bases reduce the maintenance burden significantly.
+
+## Migration Strategy
+
+We strongly recommend upgrading to V1.4 before moving to V2. In V1.4, you can use both pgvector and Knowledge Base bots, allowing a transition period to recreate and verify your bots.
+
+<Note>
+Even if RAG documents remain identical, the backend changes to OpenSearch may produce slightly different results due to differences like k-NN algorithms, though results are generally similar.
+</Note>
+
+## Migration Process
+
+The steps differ depending on whether you're using V1.2 or earlier, or V1.3.
+
+### For Users of V1.2 or Earlier
+
+<Steps>
+  <Step title="Backup Document Bucket (Optional but Recommended)">
+    If your system is already in operation, strongly consider backing up your document bucket.
+    
+    Back up the bucket named `bedrockchatstack-documentbucketxxxx-yyyy` using [AWS Backup](https://docs.aws.amazon.com/aws-backup/latest/devguide/s3-backups.html).
+  </Step>
+  
+  <Step title="Update to V1.4">
+    Fetch the latest V1.4 tag, modify configuration, and deploy.
+    
+    ```bash
+    # Fetch the latest tag
+    git fetch --tags
+    git checkout tags/v1.4.0
+    ```
+    
+    Modify `cdk.json`:
+    
+    ```json
+    {
+      ...,
+      "useBedrockKnowledgeBasesForRag": true,
+      ...
+    }
+    ```
+    
+    Deploy the changes:
+    
+    ```bash
+    npx cdk deploy
+    ```
+  </Step>
+  
+  <Step title="Recreate Your Bots">
+    Recreate your bots on Knowledge Base with the same definitions (documents, chunk size, etc.) as the pgvector bots.
+    
+    <Note>
+    Some features are not available on Knowledge Bases, such as YouTube transcript support. Web crawling support is planned.
+    </Note>
+    
+    If you have a large volume of documents, restore from the backup in Step 1 to make this process easier.
+    
+    To restore using cross-region copies, see [AWS Backup documentation](https://docs.aws.amazon.com/aws-backup/latest/devguide/restoring-s3.html).
+    
+    To specify the restored bucket in S3 Data Source:
+    
+    The path structure is: `s3://<bucket-name>/<user-id>/<bot-id>/documents/`
+    
+    - Check user ID on Cognito user pool
+    - Check bot ID on address bar during bot creation
+    
+    <Warning>
+    During the transition period, you will incur charges for both Aurora and Knowledge Bases.
+    </Warning>
+  </Step>
+  
+  <Step title="Remove Published APIs">
+    All previously published APIs need to be republished before deploying V2 due to VPC deletion.
+    
+    Delete existing APIs first using the [administrator's API Management feature](/administration/api-management).
+    
+    Ensure all `APIPublishmentStackXXXX` CloudFormation stacks are deleted before proceeding.
+  </Step>
+  
+  <Step title="Deploy V2">
+    After the V2 release, fetch the tagged source and deploy:
+    
+    ```bash
+    git fetch --tags
+    git checkout tags/v2.0.0
+    npx cdk deploy
+    ```
+    
+    <Warning>
+    After deploying V2, **ALL BOTS WITH THE PREFIX [Unsupported, Read-only] WILL BE HIDDEN**. Ensure you recreate necessary bots before upgrading to avoid loss of access.
+    </Warning>
+  </Step>
+</Steps>
+
+### For Users of V1.3
+
+In V1.4, Knowledge Bases must be created in the `bedrockRegion` due to regional restrictions. Therefore, you need to recreate the Knowledge Base.
+
+If you have already tested Knowledge Bases in V1.3, recreate the bot in V1.4 with the same definitions. Follow the steps outlined for V1.2 users above.
+
+## Configuration Changes
+
+When enabling Knowledge Bases in V1.4, pgvector bots become read-only:
+
+- Cannot create new pgvector bots
+- Cannot edit existing pgvector bots
+- Existing pgvector bots remain accessible for reading
+
+## Regional Considerations
+
+Due to regional restrictions of Knowledge Bases, the S3 bucket for uploading documents must be in the same region as `bedrockRegion`.
+
+Recommendation: Back up existing document buckets before updating to avoid manually uploading large numbers of documents later.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Stack update shows repeated subnet deletion errors">
+    During stack updates, you might encounter repeated messages like:
+    
+    ```
+    Resource handler returned message: "The subnet 'subnet-xxx' has dependencies and cannot be deleted."
+    ```
+    
+    **Solution**: Navigate to Management Console > EC2 > Network Interfaces and search for `BedrockChatStack`. Delete the displayed interfaces associated with this name to ensure a smoother deployment process.
+  </Accordion>
+  
+  <Accordion title="How do I verify Knowledge Base is working correctly?">
+    1. Create a test bot with Knowledge Base enabled
+    2. Upload a test document
+    3. Wait for synchronization to complete
+    4. Ask questions related to the document content
+    5. Verify responses include information from the uploaded document
+  </Accordion>
+  
+  <Accordion title="Can I migrate back to pgvector after deploying V2?">
+    No, V2 removes all Aurora-related resources. If you need pgvector, remain on V1 and do not upgrade to V2.
+  </Accordion>
+</AccordionGroup>
+
+## Feature Comparison
+
+| Feature | V1 (pgvector) | V2 (Knowledge Bases) |
+|---------|---------------|----------------------|
+| Vector Search | ✓ | ✓ |
+| Full-Text Search | ✗ | ✓ |
+| PDF Parsing | ✓ | ✓ |
+| Web Crawling | ✓ | Planned |
+| YouTube Transcripts | ✓ | ✗ |
+| S3 Bucket Import | ✗ | ✓ |
+| Maintenance Required | High | Low |
+| Backend Database | Aurora PostgreSQL | OpenSearch Serverless |
+| Chunking Options | Basic | Advanced |
+
+## Post-Migration Checklist
+
+After completing migration to V2:
+
+- [ ] Verify all critical bots are recreated in Knowledge Bases
+- [ ] Test bot responses for accuracy
+- [ ] Confirm document uploads are working
+- [ ] Republish required APIs
+- [ ] Remove V1 Aurora resources (if no longer needed)
+- [ ] Update documentation for your team
+- [ ] Monitor OpenSearch Serverless costs
+
+## Additional Resources
+
+- [Amazon Bedrock Knowledge Bases Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base.html)
+- [OpenSearch Serverless Documentation](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless.html)
+- [Guardrails for Amazon Bedrock](https://aws.amazon.com/bedrock/guardrails/)
+
+## Need Help?
+
+If you encounter issues during migration:
+- Review the [Troubleshooting Guide](/troubleshooting)
+- Check [GitHub Issues](https://github.com/aws-samples/bedrock-chat/issues)
+- Ensure you're following the recommended upgrade path through V1.4

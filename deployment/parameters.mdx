@@ -1,0 +1,744 @@
+---
+title: Deployment Parameters
+description: Complete reference for all Bedrock Chat deployment parameters
+---
+
+Bedrock Chat offers extensive configuration options through deployment parameters. This reference covers all available parameters and their usage.
+
+## Parameter Configuration Methods
+
+You can configure parameters in three ways:
+
+<CardGroup cols={3}>
+  <Card title="bin.sh flags" icon="terminal">
+    Command-line flags for CloudShell deployment
+  </Card>
+  <Card title="cdk.json" icon="file-code">
+    Traditional JSON configuration file
+  </Card>
+  <Card title="parameter.ts" icon="file">
+    Type-safe TypeScript configuration (recommended)
+  </Card>
+</CardGroup>
+
+## Security Parameters
+
+### selfSignUpEnabled
+
+Controls whether users can register accounts themselves.
+
+- **Type**: `boolean`
+- **Default**: `true`
+- **bin.sh flag**: `--disable-self-register`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  selfSignUpEnabled: false,
+});
+```
+
+```json
+// cdk.json
+{
+  "context": {
+    "selfSignUpEnabled": false
+  }
+}
+```
+
+```bash
+# bin.sh
+./bin.sh --disable-self-register
+```
+
+<Warning>
+When disabled, administrators must create all user accounts in Amazon Cognito manually.
+</Warning>
+
+### allowedIpV4AddressRanges
+
+IPv4 CIDR ranges allowed to access the application.
+
+- **Type**: `string[]`
+- **Default**: `["0.0.0.0/1", "128.0.0.0/1"]` (all IPv4 addresses)
+- **bin.sh flag**: `--ipv4-ranges`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  allowedIpV4AddressRanges: ["192.168.1.0/24", "10.0.0.0/8"],
+});
+```
+
+```bash
+# bin.sh
+./bin.sh --ipv4-ranges "192.168.1.0/24,10.0.0.0/8"
+```
+
+### allowedIpV6AddressRanges
+
+IPv6 CIDR ranges allowed to access the application.
+
+- **Type**: `string[]`
+- **Default**: `["0000:0000:0000:0000:0000:0000:0000:0000/1", "8000:0000:0000:0000:0000:0000:0000:0000/1"]`
+- **bin.sh flag**: `--ipv6-ranges` or `--disable-ipv6`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  allowedIpV6AddressRanges: ["2001:db8::/32"],
+});
+```
+
+```bash
+# bin.sh - Specify ranges
+./bin.sh --ipv6-ranges "2001:db8::/32"
+
+# bin.sh - Disable IPv6 entirely
+./bin.sh --disable-ipv6
+```
+
+### allowedSignUpEmailDomains
+
+Restrict sign-up to specific email domains.
+
+- **Type**: `string[]`
+- **Default**: `[]` (no restriction)
+- **bin.sh flag**: `--allowed-signup-email-domains`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  allowedSignUpEmailDomains: ["example.com", "company.org"],
+});
+```
+
+```bash
+# bin.sh
+./bin.sh --allowed-signup-email-domains "example.com,company.org"
+```
+
+### allowedCountries
+
+Restrict access by country using geo-blocking.
+
+- **Type**: `string[]` (ISO-3166 alpha-2 country codes)
+- **Default**: `[]` (no restriction)
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  allowedCountries: ["US", "CA", "GB"],
+});
+```
+
+```json
+// cdk.json
+{
+  "context": {
+    "allowedCountries": ["US", "CA", "GB"]
+  }
+}
+```
+
+<Tip>
+Use [ISO-3166 country codes](https://en.wikipedia.org/wiki/List_of_ISO_3166_country_codes) (e.g., "US" for United States, "JP" for Japan).
+</Tip>
+
+### publishedApiAllowedIpV4AddressRanges
+
+IPv4 CIDR ranges allowed to access published bot APIs.
+
+- **Type**: `string[]`
+- **Default**: `["0.0.0.0/1", "128.0.0.0/1"]`
+
+### publishedApiAllowedIpV6AddressRanges
+
+IPv6 CIDR ranges allowed to access published bot APIs.
+
+- **Type**: `string[]`
+- **Default**: `["0000:0000:0000:0000:0000:0000:0000:0000/1", "8000:0000:0000:0000:0000:0000:0000:0000/1"]`
+
+## AWS Region Parameters
+
+### bedrockRegion
+
+AWS region where Bedrock API calls are made.
+
+- **Type**: `string`
+- **Default**: `"us-east-1"`
+- **bin.sh flag**: `--bedrock-region`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  bedrockRegion: "us-west-2",
+});
+```
+
+```bash
+# bin.sh
+./bin.sh --bedrock-region "us-west-2"
+```
+
+<Warning>
+Ensure the region you choose [supports Amazon Bedrock](https://docs.aws.amazon.com/general/latest/gr/bedrock.html).
+</Warning>
+
+### enableBedrockCrossRegionInference
+
+Enable cross-region inference routing within the same region group.
+
+- **Type**: `boolean`
+- **Default**: `true`
+
+### enableBedrockGlobalInference
+
+Enable global inference routing across all regions.
+
+- **Type**: `boolean`
+- **Default**: `true`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  enableBedrockCrossRegionInference: true,
+  enableBedrockGlobalInference: true,
+});
+```
+
+<Note>
+Some Service Control Policies may restrict cross-region inference. Disable these if needed.
+</Note>
+
+## Performance Parameters
+
+### enableLambdaSnapStart
+
+Enable Lambda SnapStart for faster cold starts.
+
+- **Type**: `boolean`
+- **Default**: `true` (in `cdk.json`), `false` (in `bin.sh`)
+- **bin.sh flag**: `--enable-lambda-snapstart`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  enableLambdaSnapStart: true,
+});
+```
+
+```bash
+# bin.sh
+./bin.sh --enable-lambda-snapstart
+```
+
+<Tip>
+SnapStart incurs additional charges based on cache size and is [not available in all regions](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html#snapstart-supported-regions).
+</Tip>
+
+### enableRagReplicas
+
+Enable additional replicas for OpenSearch Serverless (RAG database).
+
+- **Type**: `boolean`
+- **Default**: `true`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  enableRagReplicas: true,  // Production: higher availability, higher cost
+});
+
+bedrockChatParams.set("dev", {
+  enableRagReplicas: false,  // Development: lower cost
+});
+```
+
+<Info>
+This is an account/region-level setting affecting the entire application, not individual bots.
+</Info>
+
+## Authentication Parameters
+
+### identityProviders
+
+External identity providers for authentication.
+
+- **Type**: `TIdentityProvider[]`
+- **Default**: `[]`
+
+**Supported Providers**:
+- Google
+- Custom OIDC provider
+
+**Usage**:
+
+```json
+// cdk.json
+{
+  "context": {
+    "identityProviders": [
+      {
+        "service": "google",
+        "clientId": "your-google-client-id.apps.googleusercontent.com",
+        "clientSecretArn": "arn:aws:secretsmanager:region:account:secret:name"
+      }
+    ]
+  }
+}
+```
+
+<Note>
+See the [authentication configuration guide](/configuration/authentication) for detailed setup instructions.
+</Note>
+
+### userPoolDomainPrefix
+
+Cognito user pool domain prefix.
+
+- **Type**: `string`
+- **Default**: `""`
+
+### autoJoinUserGroups
+
+Groups that new users automatically join.
+
+- **Type**: `string[]`
+- **Default**: `["CreatingBotAllowed"]`
+
+**Available Groups**:
+- `CreatingBotAllowed`: Can create custom bots
+- `PublishAllowed`: Can publish bots as APIs
+- `Admin`: Administrative access
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  autoJoinUserGroups: ["CreatingBotAllowed", "PublishAllowed"],
+});
+```
+
+### tokenValidMinutes
+
+ID token refresh interval in minutes.
+
+- **Type**: `number`
+- **Default**: `30`
+
+## Model Configuration Parameters
+
+### globalAvailableModels
+
+List of model IDs available globally across the application.
+
+- **Type**: `string[]`
+- **Default**: `[]` (all models enabled)
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  globalAvailableModels: [
+    "claude-v3.7-sonnet",
+    "claude-v3.5-sonnet",
+    "amazon-nova-pro",
+    "amazon-nova-lite",
+    "llama3-3-70b-instruct",
+  ],
+});
+```
+
+<Warning>
+Ensure the models you specify are enabled in your Bedrock console under Model access.
+</Warning>
+
+**Supported Model IDs**:
+
+- **Claude**: `claude-v4-opus`, `claude-v4.1-opus`, `claude-v4.5-opus`, `claude-v4-sonnet`, `claude-v3.5-sonnet`, `claude-v3.5-sonnet-v2`, `claude-v3.7-sonnet`, `claude-v3.5-haiku`, `claude-v3-haiku`, `claude-v3-opus`
+- **Amazon Nova**: `amazon-nova-pro`, `amazon-nova-lite`, `amazon-nova-micro`
+- **Mistral**: `mistral-7b-instruct`, `mixtral-8x7b-instruct`, `mistral-large`, `mistral-large-2`
+- **DeepSeek**: `deepseek-r1`
+- **Llama**: `llama3-3-70b-instruct`, `llama3-2-1b-instruct`, `llama3-2-3b-instruct`, `llama3-2-11b-instruct`, `llama3-2-90b-instruct`
+
+### defaultModel
+
+Model pre-selected when users start a new chat.
+
+- **Type**: `string`
+- **Default**: `"claude-v3.7-sonnet"` (hardcoded fallback)
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  defaultModel: "claude-v3.5-sonnet",
+});
+```
+
+### titleModel
+
+Model used for generating conversation titles.
+
+- **Type**: `string`
+- **Default**: Falls back to `defaultModel`, then `"claude-v3-haiku"`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  titleModel: "claude-v3-haiku",  // Use cheaper model for title generation
+});
+```
+
+<Tip>
+Use a smaller, cheaper model for title generation to reduce costs without affecting chat quality.
+</Tip>
+
+## Bot Store Parameters
+
+### enableBotStore
+
+Enable the bot store feature.
+
+- **Type**: `boolean`
+- **Default**: `true`
+
+### enableBotStoreReplicas
+
+Enable standby replicas for bot store OpenSearch collection.
+
+- **Type**: `boolean`
+- **Default**: `false`
+
+<Warning>
+**Cannot be changed after creation**: Once the OpenSearch collection is created, this setting cannot be modified.
+</Warning>
+
+### botStoreLanguage
+
+Primary language for bot search and indexing.
+
+- **Type**: `string`
+- **Default**: `"en"`
+
+**Supported Languages**:
+- `"en"` - English
+- `"de"` - German
+- `"fr"` - French
+- `"es"` - Spanish
+- `"ja"` - Japanese
+- `"ko"` - Korean
+- `"zhhans"` - Chinese (Simplified)
+- `"zhhant"` - Chinese (Traditional)
+- `"it"` - Italian
+- `"nb"` - Norwegian
+- `"th"` - Thai
+- `"id"` - Indonesian
+- `"ms"` - Malay
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  enableBotStore: true,
+  enableBotStoreReplicas: false,
+  botStoreLanguage: "ja",  // Japanese
+});
+```
+
+## Frontend Parameters
+
+### enableFrontendWaf
+
+Enable AWS WAF for CloudFront distribution.
+
+- **Type**: `boolean`
+- **Default**: `true`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  enableFrontendWaf: false,  // Disable if can't deploy to us-east-1
+});
+```
+
+<Info>
+CloudFront Web ACLs must be created in us-east-1. Disable this if your organization restricts resource creation outside your primary region.
+</Info>
+
+### enableFrontendIpv6
+
+Enable IPv6 support for CloudFront distribution.
+
+- **Type**: `boolean`
+- **Default**: `true`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  enableFrontendIpv6: false,
+});
+```
+
+### logoPath
+
+Relative path to logo image under `frontend/public/`.
+
+- **Type**: `string`
+- **Default**: `""`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  logoPath: "images/my-company-logo.png",
+});
+```
+
+Place your logo at `frontend/public/images/my-company-logo.png`.
+
+## Domain Configuration Parameters
+
+### alternateDomainName
+
+Custom domain name for the CloudFront distribution.
+
+- **Type**: `string`
+- **Default**: `""`
+
+### hostedZoneId
+
+Route 53 hosted zone ID for the custom domain.
+
+- **Type**: `string`
+- **Default**: `""`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  alternateDomainName: "chat.example.com",
+  hostedZoneId: "Z0123456789ABCDEF",
+});
+```
+
+<Info>
+When both parameters are provided, CDK automatically creates an ACM certificate with DNS validation and configures CloudFront to use your custom domain.
+</Info>
+
+## Storage Parameters
+
+### bucketPrefix
+
+Prefix for all S3 bucket names.
+
+- **Type**: `string`
+- **Default**: `""`
+- **Format**: Lowercase alphanumeric + hyphens only
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("default", {
+  bucketPrefix: "mycompany",
+});
+```
+
+Buckets will be named: `mycompany-access-logs`, `mycompany-codebuild-source`, etc.
+
+## Environment Parameters
+
+### envName
+
+Environment name for multi-environment deployments.
+
+- **Type**: `string`
+- **Default**: `"default"`
+- **Max Length**: 10 characters
+- **Format**: Alphanumeric, must start with letter
+
+### envPrefix
+
+Prefix automatically derived from `envName`.
+
+- **Type**: `string`
+- **Default**: `""` (for "default"), or same as `envName`
+
+**Usage**:
+
+```typescript
+// parameter.ts
+bedrockChatParams.set("dev", {
+  // envName: "dev" is automatically set
+  // envPrefix: "dev" is automatically set
+  bedrockRegion: "us-west-2",
+});
+```
+
+```bash
+# Deploy
+npx cdk deploy --all -c envName=dev
+```
+
+## Development Parameters
+
+### devAccessIamRoleArn
+
+IAM role ARN for development access (debugging).
+
+- **Type**: `string`
+- **Default**: `""`
+
+<Warning>
+**Development only**: Do not use in production.
+</Warning>
+
+## CDK JSON Override
+
+The `--cdk-json-override` flag allows overriding any parameter during CloudShell deployment.
+
+**Usage**:
+
+```bash
+./bin.sh --cdk-json-override '{
+  "context": {
+    "selfSignUpEnabled": false,
+    "enableLambdaSnapStart": true,
+    "allowedIpV4AddressRanges": ["192.168.1.0/24"],
+    "allowedCountries": ["US", "CA"],
+    "allowedSignUpEmailDomains": ["example.com"],
+    "globalAvailableModels": [
+      "claude-v3.7-sonnet",
+      "amazon-nova-pro"
+    ]
+  }
+}'
+```
+
+<Note>
+The override JSON must follow the same structure as `cdk.json`. Override values take precedence over values in `cdk.json`.
+</Note>
+
+## Parameter Priority
+
+When parameters are defined in multiple places, this is the priority order (highest to lowest):
+
+1. `--cdk-json-override` (CloudShell deployment only)
+2. `parameter.ts` (if environment is defined)
+3. `cdk.json` context values
+4. Default values in schema
+
+## Examples by Use Case
+
+### Production Deployment
+
+```typescript
+bedrockChatParams.set("prod", {
+  // Security
+  selfSignUpEnabled: false,
+  allowedIpV4AddressRanges: ["10.0.0.0/8"],
+  allowedSignUpEmailDomains: ["company.com"],
+  
+  // Performance
+  enableLambdaSnapStart: true,
+  enableRagReplicas: true,
+  enableBotStoreReplicas: true,
+  
+  // Region
+  bedrockRegion: "us-east-1",
+  
+  // Models (limit to approved models)
+  globalAvailableModels: [
+    "claude-v3.7-sonnet",
+    "amazon-nova-pro",
+  ],
+});
+```
+
+### Development Environment
+
+```typescript
+bedrockChatParams.set("dev", {
+  // Security (more relaxed)
+  selfSignUpEnabled: true,
+  allowedIpV4AddressRanges: ["0.0.0.0/1", "128.0.0.0/1"],
+  
+  // Performance (cost-optimized)
+  enableLambdaSnapStart: false,
+  enableRagReplicas: false,
+  enableBotStoreReplicas: false,
+  
+  // All models available for testing
+  globalAvailableModels: [],
+});
+```
+
+### High-Security Deployment
+
+```typescript
+bedrockChatParams.set("secure", {
+  // Strict access controls
+  selfSignUpEnabled: false,
+  allowedIpV4AddressRanges: ["192.168.1.0/24"],
+  allowedCountries: ["US"],
+  allowedSignUpEmailDomains: ["company.com"],
+  
+  // Disable external features
+  enableFrontendIpv6: false,
+  enableBedrockGlobalInference: false,
+  
+  // Custom domain
+  alternateDomainName: "chat.company.com",
+  hostedZoneId: "Z0123456789ABCDEF",
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="CloudShell Deployment" icon="cloud" href="/deployment/cloudshell">
+    Use parameters with CloudShell deployment
+  </Card>
+  <Card title="CDK Deployment" icon="code" href="/deployment/cdk">
+    Configure parameters for CDK deployment
+  </Card>
+  <Card title="Multi-Environment" icon="layer-group" href="/deployment/multi-environment">
+    Set up environment-specific parameters
+  </Card>
+  <Card title="Security Guide" icon="shield" href="/configuration/security">
+    Security configuration best practices
+  </Card>
+</CardGroup>

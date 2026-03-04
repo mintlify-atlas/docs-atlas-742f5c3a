@@ -1,0 +1,95 @@
+---
+title: Administration Overview
+description: Overview of administrative features in Bedrock Chat
+---
+
+Bedrock Chat provides comprehensive administrative features for managing users, bots, and monitoring system usage. Administrators have access to specialized tools for governance, analytics, and system-wide configuration.
+
+## Administrator Access
+
+To access administrative features, users must be members of the `Admin` group in Amazon Cognito. This can be configured via:
+
+- AWS Management Console > Amazon Cognito User Pools
+- AWS CLI
+
+The User Pool ID can be found in CloudFormation > BedrockChatStack > Outputs > `AuthUserPoolIdxxxx`.
+
+## Key Administrative Capabilities
+
+### Bot Management
+
+Administrators can:
+
+- Mark public bots as "Essential" to feature them in the bot store
+- View all published bots and their API configurations
+- Monitor bot usage and analytics
+- Manage bot visibility and pinning order
+- Access bot knowledge base configurations
+
+### User Management
+
+Administrators can:
+
+- View all users and their usage patterns
+- Monitor user costs and token consumption
+- Access user conversation history
+- Review user prompts for quality and compliance
+- Assign users to permission groups
+
+### Analytics & Monitoring
+
+Administrators have access to:
+
+- Bot usage analytics with query counts and unique users
+- Cost allocation per user and bot
+- Satisfaction metrics and feedback
+- Popular queries for each bot
+- Usage trends over time
+
+### Audit & Compliance
+
+The platform provides:
+
+- Comprehensive audit logging of admin actions
+- User activity tracking
+- Resource modification trails
+- Conversation data export via Amazon Athena
+- Feedback loop for analyzing LLM outputs
+
+## API Endpoints
+
+All administrative API endpoints are prefixed with `/admin/` and require admin authentication:
+
+- `/admin/published-bots` - Get all published bots
+- `/admin/public-bots` - Get public bots with usage data
+- `/admin/users` - Get all users with usage metrics
+- `/admin/bot/{bot_id}` - Get bot details and analytics
+- `/admin/costs/summary` - Get cost summary and allocation
+- `/admin/audit-logs` - Access audit logs
+
+## Data Export & Analysis
+
+Conversation logs are exported to Amazon S3 from DynamoDB and can be queried using Amazon Athena. This enables:
+
+- Custom analytics and reporting
+- Compliance auditing
+- Feedback analysis
+- Usage pattern identification
+
+<Note>
+Exported data is refreshed hourly, so the latest conversations may not be immediately available in analytics.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users" href="/administration/user-management">
+    Learn about user groups and permissions
+  </Card>
+  <Card title="Bot Management" icon="robot" href="/administration/bot-management">
+    Manage bots and essential bot features
+  </Card>
+  <Card title="Analytics" icon="chart-line" href="/administration/analytics">
+    View usage analytics and cost allocation
+  </Card>
+</CardGroup>

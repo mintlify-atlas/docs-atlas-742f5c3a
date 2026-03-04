@@ -1,0 +1,423 @@
+---
+title: AWS Workshop
+description: Hands-on workshop to learn Bedrock Chat features and best practices
+---
+
+## Bedrock Chat Workshop
+
+The official AWS workshop provides comprehensive, hands-on training for Bedrock Chat. Learn how to deploy, configure, and use all features through guided exercises.
+
+<img
+  src="https://raw.githubusercontent.com/aws-samples/bedrock-chat/v3/docs/imgs/workshop.png"
+  alt="Bedrock Chat Workshop"
+/>
+
+## Access the Workshop
+
+The workshop is hosted on AWS Workshop Studio:
+
+<Card
+  title="Bedrock Chat Workshop"
+  icon="graduation-cap"
+  href="https://catalog.us-east-1.prod.workshops.aws/workshops/4bf8d30b-f7c9-440a-a853-9394a41909d2/en-US"
+>
+  Access the full hands-on workshop with step-by-step instructions, sample datasets, and exercises
+</Card>
+
+## Workshop Overview
+
+The workshop covers the complete Bedrock Chat experience:
+
+### Module 1: Deployment
+
+<Steps>
+  <Step title="Prerequisites">
+    - Set up AWS account and credentials
+    - Enable Bedrock model access
+    - Choose deployment region
+  </Step>
+  
+  <Step title="Deploy Bedrock Chat">
+    - Use CloudShell deployment script
+    - Configure security parameters
+    - Verify deployment success
+  </Step>
+  
+  <Step title="Initial Configuration">
+    - Access the application
+    - Create your first user account
+    - Explore the interface
+  </Step>
+</Steps>
+
+### Module 2: Basic Chat Features
+
+<AccordionGroup>
+  <Accordion title="Multi-Model Chat" icon="comments">
+    Learn to:
+    - Select different AI models (Claude, Nova, Llama)
+    - Compare model responses
+    - Understand token usage and costs
+    - Use conversation history
+  </Accordion>
+  
+  <Accordion title="Advanced Chat Features" icon="wand-magic-sparkles">
+    Explore:
+    - Markdown formatting in responses
+    - Code syntax highlighting
+    - LaTeX math rendering
+    - Mermaid diagram generation
+    - Conversation management
+  </Accordion>
+</AccordionGroup>
+
+### Module 3: Custom Bots with RAG
+
+<Steps>
+  <Step title="Create Your First Bot">
+    - Configure bot personality and instructions
+    - Set bot visibility (private/public/shared)
+    - Test basic bot responses
+  </Step>
+  
+  <Step title="Add Knowledge Base">
+    - Upload documents (PDF, TXT, DOCX)
+    - Configure embedding settings
+    - Wait for synchronization
+    - Test RAG queries
+  </Step>
+  
+  <Step title="Advanced Knowledge Base">
+    - Import existing Bedrock Knowledge Bases
+    - Use multi-tenant Knowledge Bases
+    - Configure chunking strategies
+    - Optimize retrieval settings
+  </Step>
+</Steps>
+
+### Module 4: Bot Store & Sharing
+
+<AccordionGroup>
+  <Accordion title="Publishing Bots" icon="share">
+    Learn to:
+    - Publish bots to the bot store
+    - Configure bot permissions (view, use, edit)
+    - Add bot descriptions and categories
+    - Manage bot versions
+  </Accordion>
+  
+  <Accordion title="Discovering Bots" icon="magnifying-glass">
+    Explore:
+    - Search the bot store
+    - Filter by categories
+    - Try shared bots
+    - Rate and review bots
+  </Accordion>
+  
+  <Accordion title="Fine-Grained Permissions" icon="lock">
+    Configure:
+    - Public vs. private bots
+    - User-specific sharing
+    - Group-based access
+    - Admin controls
+  </Accordion>
+</AccordionGroup>
+
+### Module 5: AI Agents
+
+<Steps>
+  <Step title="Understanding Agents">
+    - Learn ReAct (Reasoning + Acting) pattern
+    - Understand tool usage
+    - Multi-step task decomposition
+  </Step>
+  
+  <Step title="Using Built-in Tools">
+    Available tools:
+    - Web search
+    - Calculator
+    - Date/time utilities
+    - API calls
+  </Step>
+  
+  <Step title="Agent Examples">
+    Try exercises:
+    - Research and summarization tasks
+    - Multi-source information gathering
+    - Complex calculation workflows
+    - Real-time data retrieval
+  </Step>
+</Steps>
+
+### Module 6: API Publishing
+
+<AccordionGroup>
+  <Accordion title="Publish Bot as API" icon="cloud">
+    Steps:
+    1. Select a custom bot
+    2. Click "Publish API"
+    3. Configure API settings
+    4. Wait for CloudFormation stack creation
+    5. Receive API endpoint and key
+  </Accordion>
+  
+  <Accordion title="API Usage" icon="code">
+    Learn to:
+    - Authenticate with API key
+    - Make REST API calls
+    - Handle streaming responses
+    - Monitor API usage
+    - Configure rate limits
+  </Accordion>
+  
+  <Accordion title="API Security" icon="shield">
+    Configure:
+    - IP allowlists via WAF
+    - API key rotation
+    - Usage quotas
+    - CloudWatch monitoring
+  </Accordion>
+</AccordionGroup>
+
+### Module 7: Administration
+
+<Steps>
+  <Step title="User Management">
+    - Create users in Cognito
+    - Assign users to groups
+    - Configure group permissions
+    - Manage user lifecycle
+  </Step>
+  
+  <Step title="Bot Management">
+    - Mark bots as essential
+    - Monitor bot usage
+    - Delete unused bots
+    - Export bot configurations
+  </Step>
+  
+  <Step title="Analytics & Monitoring">
+    - View usage dashboards
+    - Query with Athena
+    - Set up CloudWatch alarms
+    - Analyze costs
+  </Step>
+</Steps>
+
+### Module 8: Advanced Topics
+
+<AccordionGroup>
+  <Accordion title="Multi-Environment Deployment" icon="layer-group">
+    Learn to:
+    - Use `parameter.ts` for environment configs
+    - Deploy dev, staging, prod environments
+    - Manage environment-specific settings
+    - Tag resources by environment
+  </Accordion>
+  
+  <Accordion title="Custom Identity Providers" icon="id-badge">
+    Configure:
+    - Google authentication
+    - Custom OIDC providers
+    - SAML integration
+    - User attribute mapping
+  </Accordion>
+  
+  <Accordion title="Custom Domains" icon="globe">
+    Set up:
+    - Route 53 hosted zone
+    - ACM certificate
+    - CloudFront alternate domain
+    - DNS records
+  </Accordion>
+  
+  <Accordion title="Cost Optimization" icon="dollar-sign">
+    Strategies:
+    - Multi-tenant Knowledge Bases
+    - Disable replicas for dev
+    - Use cheaper models for titles
+    - Monitor Bedrock token usage
+  </Accordion>
+</AccordionGroup>
+
+## Workshop Features
+
+<CardGroup cols={2}>
+  <Card title="Self-Paced" icon="clock">
+    Complete the workshop at your own pace with no time limits
+  </Card>
+  <Card title="AWS Account Provided" icon="aws">
+    Workshop Studio provides temporary AWS account (optional)
+  </Card>
+  <Card title="Sample Data" icon="database">
+    Pre-configured datasets and documents for exercises
+  </Card>
+  <Card title="Guided Instructions" icon="map">
+    Step-by-step instructions with screenshots and code samples
+  </Card>
+  <Card title="Best Practices" icon="star">
+    Learn production deployment patterns and security guidelines
+  </Card>
+  <Card title="Troubleshooting" icon="wrench">
+    Common issues and solutions provided throughout
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+Before starting the workshop:
+
+### AWS Knowledge
+
+<Tip>
+  Basic familiarity with AWS services recommended but not required. The workshop includes explanations of AWS concepts.
+</Tip>
+
+- Understanding of AWS console navigation
+- Basic knowledge of IAM roles and permissions
+- Familiarity with CloudFormation (helpful)
+
+### Technical Skills
+
+- Basic command-line usage
+- Text editor usage
+- Web browser (Chrome, Firefox, Safari, Edge)
+- JSON/YAML understanding (helpful)
+
+### AWS Account Requirements
+
+<Warning>
+  If using your own AWS account, ensure you have:
+  - Administrator or equivalent permissions
+  - Service quota availability (Lambda, DynamoDB, OpenSearch)
+  - Bedrock model access enabled
+</Warning>
+
+## Workshop Duration
+
+| Module | Estimated Time |
+|--------|---------------|
+| Module 1: Deployment | 45 minutes |
+| Module 2: Basic Chat | 30 minutes |
+| Module 3: Custom Bots | 45 minutes |
+| Module 4: Bot Store | 30 minutes |
+| Module 5: AI Agents | 30 minutes |
+| Module 6: API Publishing | 30 minutes |
+| Module 7: Administration | 30 minutes |
+| Module 8: Advanced Topics | 60 minutes |
+| **Total** | **4-5 hours** |
+
+<Note>
+  You can complete modules independently and skip sections if you're already familiar with certain topics.
+</Note>
+
+## After the Workshop
+
+### Next Steps
+
+<Steps>
+  <Step title="Deploy to Production">
+    Apply what you learned to deploy Bedrock Chat in your organization with proper security configurations.
+  </Step>
+  
+  <Step title="Customize">
+    Explore configuration options in [Configuration](/configuration/customization) to match your brand and requirements.
+  </Step>
+  
+  <Step title="Develop Custom Tools">
+    Create custom agent tools for your specific use cases. See [Custom Tools](/development/custom-tools).
+  </Step>
+  
+  <Step title="Contribute">
+    Consider contributing improvements back to the project. See [Contributing](/development/contributing).
+  </Step>
+</Steps>
+
+### Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Documentation" icon="book" href="/introduction">
+    Complete Bedrock Chat documentation
+  </Card>
+  <Card title="GitHub Repository" icon="github" href="https://github.com/aws-samples/bedrock-chat">
+    Source code and issue tracking
+  </Card>
+  <Card title="AWS Bedrock Docs" icon="aws" href="https://docs.aws.amazon.com/bedrock/">
+    Official Amazon Bedrock documentation
+  </Card>
+  <Card title="Community" icon="users" href="https://github.com/aws-samples/bedrock-chat/discussions">
+    GitHub Discussions for questions and ideas
+  </Card>
+</CardGroup>
+
+## Workshop Support
+
+### During the Workshop
+
+- **In-Person Workshops**: Ask instructors for help
+- **Self-Service**: Use the built-in help and troubleshooting sections
+- **AWS Support**: Contact AWS Support if using Workshop Studio account
+
+### After the Workshop
+
+<AccordionGroup>
+  <Accordion title="Documentation" icon="book">
+    Refer to this documentation site for detailed reference information.
+  </Accordion>
+  
+  <Accordion title="GitHub Issues" icon="github">
+    Report bugs or request features at [GitHub Issues](https://github.com/aws-samples/bedrock-chat/issues).
+  </Accordion>
+  
+  <Accordion title="GitHub Discussions" icon="comments">
+    Ask questions and share experiences at [GitHub Discussions](https://github.com/aws-samples/bedrock-chat/discussions).
+  </Accordion>
+  
+  <Accordion title="AWS Support" icon="headset">
+    For production deployments, use your AWS Support plan.
+  </Accordion>
+</AccordionGroup>
+
+## Clean Up
+
+After completing the workshop, clean up resources to avoid charges:
+
+<Warning>
+  **Important**: If using your own AWS account, delete all resources to stop incurring charges.
+</Warning>
+
+```bash
+# Delete CloudFormation stacks in order:
+# 1. Delete any bot Knowledge Base stacks (BrChatKbStack-*)
+# 2. Delete any published API stacks (ApiPublishmentStack-*)
+# 3. Delete BedrockChatStack
+# 4. Delete FrontendWafStack (in us-east-1)
+# 5. Delete CodeBuildForDeploy
+```
+
+Or use AWS Console:
+
+1. Navigate to CloudFormation console
+2. Delete stacks in the order listed above
+3. Wait for each stack to fully delete before deleting the next
+4. Verify all S3 buckets are deleted (some may require manual deletion)
+
+## Feedback
+
+Help improve the workshop:
+
+<Card title="Provide Feedback" icon="comment" href="https://github.com/aws-samples/bedrock-chat/issues/new">
+  Share your workshop experience, suggestions, or report issues
+</Card>
+
+---
+
+## Ready to Start?
+
+<Card
+  title="Launch the Workshop"
+  icon="rocket"
+  href="https://catalog.us-east-1.prod.workshops.aws/workshops/4bf8d30b-f7c9-440a-a853-9394a41909d2/en-US"
+>
+  Begin your Bedrock Chat learning journey with hands-on exercises
+</Card>

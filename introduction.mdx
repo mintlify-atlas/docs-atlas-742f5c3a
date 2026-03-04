@@ -1,0 +1,156 @@
+---
+title: Introduction
+description: A multilingual generative AI chat platform powered by Amazon Bedrock
+---
+
+## What is Bedrock Chat?
+
+Bedrock Chat (BrChat) is an enterprise-ready, multilingual generative AI chat platform powered by [Amazon Bedrock](https://aws.amazon.com/bedrock/). It enables organizations to deploy a fully-featured AI chat application with custom bot creation, knowledge base integration, and task automation capabilities.
+
+<img
+  src="https://raw.githubusercontent.com/aws-samples/bedrock-chat/v3/docs/imgs/demo.gif"
+  alt="Bedrock Chat Demo"
+/>
+
+## Key Features
+
+Bedrock Chat provides a comprehensive set of features for building production-grade AI applications:
+
+<CardGroup cols={2}>
+  <Card title="Multi-Model Chat" icon="comments">
+    Support for Claude, Amazon Nova, Llama, Mistral, and DeepSeek models via Amazon Bedrock API
+  </Card>
+  <Card title="Custom Bots with RAG" icon="robot">
+    Create specialized bots with custom instructions and knowledge bases using Retrieval-Augmented Generation
+  </Card>
+  <Card title="Bot Store" icon="store">
+    Share and discover bots in a centralized marketplace with fine-grained permission controls
+  </Card>
+  <Card title="AI Agents" icon="wand-magic-sparkles">
+    Automate complex tasks with ReAct agents that use tools and break down multi-step queries
+  </Card>
+  <Card title="API Publishing" icon="cloud">
+    Deploy custom bots as standalone REST APIs with dedicated endpoints and authentication
+  </Card>
+  <Card title="Admin Controls" icon="shield-check">
+    Manage users, mark essential bots, analyze usage, and control API access
+  </Card>
+</CardGroup>
+
+## Bot Personalization
+
+Create custom bots with your own instructions and knowledge using RAG (Retrieval-Augmented Generation). Bots can be shared among application users via the bot store marketplace and published as standalone APIs.
+
+<img
+  src="https://raw.githubusercontent.com/aws-samples/bedrock-chat/v3/docs/imgs/customized_bot_creation.png"
+  alt="Custom Bot Creation"
+/>
+
+<Warning>
+  For governance reasons, only users in the `CreatingBotAllowed` group can create custom bots. Configure this via Amazon Cognito User Pools console or AWS CLI.
+</Warning>
+
+## Multi-Tenant Knowledge Bases
+
+Amazon Bedrock Knowledge Bases has a default limit of 100 Knowledge Bases per AWS account. Bedrock Chat supports multi-tenant mode, where a shared Knowledge Base is used across multiple bots with metadata-based filtering using Bot IDs.
+
+Newly created bots automatically use multi-tenant mode. To migrate existing bots:
+
+```bash
+aws dynamodb execute-statement --statement "UPDATE \"$BotTableNameV3\" SET BedrockKnowledgeBase.type='shared' SET SyncStatus='QUEUED' WHERE PK='$UserID' AND SK='BOT#$BotID'"
+aws stepfunctions start-execution --state-machine-arn $EmbeddingStateMachineArn
+```
+
+## Administrative Features
+
+Bedrock Chat provides comprehensive administrative controls:
+
+- **API Management**: Create and manage published bot APIs
+- **Essential Bots**: Mark important bots for organization-wide visibility
+- **Usage Analytics**: Analyze chat and bot usage patterns
+- **User Management**: Control permissions and group memberships
+
+<img
+  src="https://raw.githubusercontent.com/aws-samples/bedrock-chat/v3/docs/imgs/admin_bot_analytics.png"
+  alt="Bot Analytics Dashboard"
+/>
+
+## Agent Functionality
+
+By using the Agent functionality, your chatbot can automatically handle complex tasks. Agents can retrieve information from external tools and break down tasks into multiple steps for processing.
+
+<img
+  src="https://raw.githubusercontent.com/aws-samples/bedrock-chat/v3/docs/imgs/agent1.png"
+  alt="Agent Functionality"
+/>
+
+Learn more about [agents](/features/agents) in the documentation.
+
+## Supported Languages
+
+Bedrock Chat supports 15+ languages with automatic detection:
+
+- English, Japanese (日本語), Korean (한국어), Chinese (中文)
+- French (Français), German (Deutsch), Spanish (Español), Italian
+- Norwegian (Norsk), Thai (ไทย), Indonesian, Malay, Vietnamese
+- Polish (Polski), Portuguese (Português Brasil)
+
+## Why Choose Bedrock Chat?
+
+<AccordionGroup>
+  <Accordion title="Serverless & Scalable">
+    Built on AWS managed services with no infrastructure to manage. Automatically scales with your usage.
+  </Accordion>
+  <Accordion title="Enterprise Security">
+    Multiple authentication providers, IP restrictions via AWS WAF, data isolation with Amazon Cognito, and AWS IAM integration.
+  </Accordion>
+  <Accordion title="No External APIs">
+    All AI model interactions happen through Amazon Bedrock within your AWS account. No data leaves AWS.
+  </Accordion>
+  <Accordion title="Cost Optimized">
+    Multi-tenant knowledge bases, configurable replicas, and Lambda SnapStart reduce operational costs.
+  </Accordion>
+  <Accordion title="Customizable">
+    Configure models, branding, authentication providers, security policies, and deployment parameters.
+  </Accordion>
+</AccordionGroup>
+
+## Getting Started
+
+<CardGroup cols={2}>
+  <Card title="Quick Deployment" icon="rocket" href="/quickstart">
+    Deploy Bedrock Chat to your AWS account in under 40 minutes using CloudShell
+  </Card>
+  <Card title="Architecture Overview" icon="sitemap" href="/architecture">
+    Learn about the AWS services and architecture patterns used in Bedrock Chat
+  </Card>
+  <Card title="AWS Workshop" icon="graduation-cap" href="/workshop">
+    Follow our comprehensive hands-on workshop to learn all features
+  </Card>
+  <Card title="CDK Deployment" icon="code" href="/deployment/cdk">
+    Advanced deployment with AWS CDK for custom configurations
+  </Card>
+</CardGroup>
+
+## Version 3.x Notice
+
+<Warning>
+  **V3 released.** V3 is NOT compatible with V2 or earlier versions. To update, carefully review the [migration guide](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/migration/V2_TO_V3.md). Without proper migration, **BOTS FROM V2 WILL BECOME UNUSABLE.**
+</Warning>
+
+## Next Steps
+
+<Steps>
+  <Step title="Deploy Bedrock Chat">
+    Follow our [quickstart guide](/quickstart) to deploy Bedrock Chat to your AWS account
+  </Step>
+  <Step title="Configure security">
+    Set up [authentication](/configuration/authentication) and [security policies](/configuration/security)
+  </Step>
+  <Step title="Create custom bots">
+    Learn how to create [custom bots with knowledge bases](/features/custom-bots)
+  </Step>
+  <Step title="Explore advanced features">
+    Try [agents](/features/agents) and [API publishing](/features/api-publishing)
+  </Step>
+</Steps>

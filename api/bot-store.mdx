@@ -1,0 +1,273 @@
+---
+title: Bot Store Endpoints
+description: API endpoints for discovering and searching bots in the bot store
+---
+
+## Overview
+
+Bot store endpoints provide discovery and search functionality for finding and accessing shared bots.
+
+## Search Bots
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/store/search" />
+  <api-endpoint-description>
+    Search for bots by query string. Returns private bots if you are the owner, and only accessible shared bots.
+  </api-endpoint-description>
+</api-endpoint>
+
+### Query Parameters
+
+<ParamField query="query" type="string" required>
+  Search query string to match against bot titles and descriptions
+</ParamField>
+
+<ParamField query="limit" type="integer" default="20">
+  Maximum number of results to return
+</ParamField>
+
+### Response
+
+Returns an array of bot metadata objects:
+
+<ResponseField name="id" type="string">
+  Bot identifier
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Bot title
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Bot description
+</ResponseField>
+
+<ResponseField name="create_time" type="float">
+  Unix timestamp of creation
+</ResponseField>
+
+<ResponseField name="last_used_time" type="float">
+  Unix timestamp of last use
+</ResponseField>
+
+<ResponseField name="is_starred" type="boolean">
+  Whether the bot is starred by the current user
+</ResponseField>
+
+<ResponseField name="owned" type="boolean">
+  Whether the current user owns the bot
+</ResponseField>
+
+<ResponseField name="available" type="boolean">
+  Whether the bot is available for use
+</ResponseField>
+
+<ResponseField name="sync_status" type="string">
+  Knowledge base synchronization status:
+  - `"QUEUED"`: Waiting to start
+  - `"KNOWLEDGE_BASE_STACK_CREATED"`: Infrastructure created
+  - `"RUNNING"`: Sync in progress
+  - `"SUCCEEDED"`: Sync completed successfully
+  - `"FAILED"`: Sync failed
+  - `"ORIGINAL_NOT_FOUND"`: Original bot was removed
+</ResponseField>
+
+<ResponseField name="shared_scope" type="string">
+  Sharing scope of the bot:
+  - `"private"`: Only owner can access
+  - `"partial"`: Shared with specific users/groups
+  - `"all"`: Public bot
+</ResponseField>
+
+<ResponseField name="shared_status" type="string">
+  Detailed sharing status (e.g., `"private"`, `"shared"`, `"pinned@xxx"`)
+</ResponseField>
+
+### Example Request
+
+```bash
+GET /store/search?query=technical%20support&limit=10
+```
+
+### Example Response
+
+```json
+[
+  {
+    "id": "tech-support-bot",
+    "title": "Tech Support Assistant",
+    "description": "AI assistant for technical support queries",
+    "create_time": 1704067200.0,
+    "last_used_time": 1704153600.0,
+    "is_starred": false,
+    "owned": false,
+    "available": true,
+    "sync_status": "SUCCEEDED",
+    "shared_scope": "all",
+    "shared_status": "shared"
+  },
+  {
+    "id": "customer-service-bot",
+    "title": "Customer Service Helper",
+    "description": "Assists with customer service inquiries",
+    "create_time": 1703980800.0,
+    "last_used_time": 1704240000.0,
+    "is_starred": true,
+    "owned": false,
+    "available": true,
+    "sync_status": "SUCCEEDED",
+    "shared_scope": "all",
+    "shared_status": "shared"
+  }
+]
+```
+
+---
+
+## Get Popular Bots
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/store/popular" />
+  <api-endpoint-description>
+    Get popular bots ordered by usage count. Only returns accessible shared bots (not private bots).
+  </api-endpoint-description>
+</api-endpoint>
+
+### Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Maximum number of results to return
+</ParamField>
+
+### Response
+
+Returns an array of bot metadata objects (same structure as search results), ordered by usage count in descending order.
+
+### Example Request
+
+```bash
+GET /store/popular?limit=5
+```
+
+### Example Response
+
+```json
+[
+  {
+    "id": "general-assistant",
+    "title": "General AI Assistant",
+    "description": "Versatile AI assistant for general questions",
+    "create_time": 1703894400.0,
+    "last_used_time": 1704326400.0,
+    "is_starred": true,
+    "owned": false,
+    "available": true,
+    "sync_status": "SUCCEEDED",
+    "shared_scope": "all",
+    "shared_status": "pinned@featured"
+  }
+]
+```
+
+---
+
+## Get Pickup Bots
+
+<api-endpoint>
+  <api-endpoint-heading method="GET" path="/store/pickup" />
+  <api-endpoint-description>
+    Get today's pickup bots - a random selection of featured bots. Only returns accessible shared bots (not private bots).
+  </api-endpoint-description>
+</api-endpoint>
+
+### Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Maximum number of results to return
+</ParamField>
+
+### Response
+
+Returns an array of bot metadata objects (same structure as search results), in random order.
+
+### Example Request
+
+```bash
+GET /store/pickup?limit=3
+```
+
+### Example Response
+
+```json
+[
+  {
+    "id": "code-reviewer",
+    "title": "Code Review Assistant",
+    "description": "Helps review code and suggest improvements",
+    "create_time": 1703808000.0,
+    "last_used_time": 1704067200.0,
+    "is_starred": false,
+    "owned": false,
+    "available": true,
+    "sync_status": "SUCCEEDED",
+    "shared_scope": "all",
+    "shared_status": "shared"
+  },
+  {
+    "id": "writing-helper",
+    "title": "Writing Assistant",
+    "description": "Assists with writing and editing tasks",
+    "create_time": 1703721600.0,
+    "last_used_time": 1704153600.0,
+    "is_starred": false,
+    "owned": false,
+    "available": true,
+    "sync_status": "SUCCEEDED",
+    "shared_scope": "all",
+    "shared_status": "shared"
+  },
+  {
+    "id": "data-analyst",
+    "title": "Data Analysis Bot",
+    "description": "Helps analyze and visualize data",
+    "create_time": 1703635200.0,
+    "last_used_time": 1704240000.0,
+    "is_starred": true,
+    "owned": false,
+    "available": true,
+    "sync_status": "SUCCEEDED",
+    "shared_scope": "all",
+    "shared_status": "shared"
+  }
+]
+```
+
+---
+
+## Bot Discovery Flow
+
+Here's a typical flow for discovering and using bots from the store:
+
+1. **Browse Popular Bots**: Start with `/store/popular` to see the most used bots
+2. **Check Pickup Selection**: Use `/store/pickup` to discover featured bots
+3. **Search for Specific Needs**: Use `/store/search` with keywords to find bots matching your requirements
+4. **Get Bot Details**: Use `/bot/summary/{bot_id}` to see full details before using
+5. **Start Conversation**: Create a conversation with the bot using `/conversation` endpoint
+
+## Bot Visibility Levels
+
+Bots in the store can have different sharing configurations:
+
+| Shared Scope | Description | Visibility in Store |
+|--------------|-------------|--------------------|
+| `private` | Only owner can access | Not shown in store (unless you're the owner) |
+| `partial` | Shared with specific users/groups | Shown only to allowed users |
+| `all` | Public bot | Shown to all users |
+
+## Notes
+
+- Search results include private bots only if you are the owner
+- Popular and pickup endpoints exclude private bots entirely
+- Admin users may see partial shared bots not accessible to them
+- The `available` field indicates if the bot can be used (false if original bot was removed)
+- The `sync_status` shows the knowledge base synchronization state

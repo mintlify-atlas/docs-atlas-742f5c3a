@@ -1,0 +1,332 @@
+---
+title: Custom Bot Creation
+description: Create personalized AI assistants with custom instructions, knowledge, and behavior
+---
+
+Custom bots allow you to create specialized AI assistants tailored to specific use cases. By adding custom instructions, knowledge bases, and configuring behavior, you can build bots that understand your domain and respond consistently.
+
+## Prerequisites
+
+<Note>
+Bot creation requires membership in the `CreatingBotAllowed` Cognito user group. Administrators can add users to this group via the AWS Console or CLI.
+</Note>
+
+To grant bot creation permissions:
+
+1. Navigate to **Amazon Cognito** in the AWS Console
+2. Select your user pool (find the ID in CloudFormation outputs: `AuthUserPoolIdxxxx`)
+3. Add users to the `CreatingBotAllowed` group
+
+## Creating a Bot
+
+### Basic Information
+
+Every bot requires:
+
+- **Title**: A clear, descriptive name
+- **Description**: What the bot does (shown in bot store)
+- **Instruction**: System prompt that defines bot behavior and personality
+
+<Accordion title="Instruction Best Practices">
+  - Be specific about the bot's role and expertise
+  - Define the tone and style of responses
+  - Include any constraints or guidelines
+  - Specify output format if needed
+  - Keep instructions concise but comprehensive
+</Accordion>
+
+### Generation Parameters
+
+Customize how the bot generates responses:
+
+```typescript
+{
+  max_tokens: 2000,
+  temperature: 0.6,
+  top_p: 0.999,
+  top_k: 128,
+  stop_sequences: [],
+  reasoning_params: {
+    budget_tokens: 1024
+  }
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="Conservative" icon="shield">
+    Low temperature (0.1-0.3) for factual, consistent responses. Good for support bots.
+  </Card>
+  
+  <Card title="Balanced" icon="balance-scale">
+    Medium temperature (0.5-0.7) for general-purpose bots with some creativity.
+  </Card>
+  
+  <Card title="Creative" icon="palette">
+    High temperature (0.8-1.0) for brainstorming and creative content generation.
+  </Card>
+  
+  <Card title="Extended Thinking" icon="brain">
+    Higher budget_tokens (10K-64K) for complex reasoning tasks with Claude 3.7.
+  </Card>
+</CardGroup>
+
+## Knowledge Integration
+
+Enhance your bot with domain-specific knowledge using RAG (Retrieval-Augmented Generation). See the [Knowledge Bases](/features/knowledge-bases) page for detailed information.
+
+## Agent Capabilities
+
+Enable your bot to use tools and perform actions. See the [Agents](/features/agents) page for details on:
+
+- Internet search
+- Knowledge base queries
+- Calculator functions
+- Custom tool development
+
+## Model Selection
+
+Control which models users can choose when using your bot:
+
+```python
+active_models = {
+    "claude_v3_7_sonnet": True,
+    "claude_v3_5_haiku": True,
+    "amazon_nova_pro": True,
+    "amazon_nova_lite": False,  # Disabled
+    # ... other models
+}
+```
+
+<Note>
+By default, all globally available models are enabled. Use this setting to restrict models for cost control or specific requirements.
+</Note>
+
+## Conversation Quick Starters
+
+Provide example prompts to help users get started:
+
+```typescript
+conversation_quick_starters: [
+  {
+    title: "Generate Report",
+    example: "Create a weekly status report based on the following data..."
+  },
+  {
+    title: "Analyze Data",
+    example: "Analyze this dataset and provide key insights..."
+  }
+]
+```
+
+## Visibility and Sharing
+
+Control who can access your bot:
+
+### Private (Default)
+
+- Only you can access the bot
+- Not visible in bot store
+- Ideal for personal assistants
+
+### Partial Sharing
+
+- Share with specific users or groups
+- Requires Cognito user IDs or group names
+- Good for team or department bots
+
+```python
+shared_scope = "partial"
+allowed_cognito_groups = ["Engineering", "ProductTeam"]
+allowed_cognito_users = ["user123", "user456"]
+```
+
+### Public
+
+- Available to all users in bot store
+- Can be pinned by administrators
+- Required for API publishing
+
+<Note>
+Only bots with `shared_scope = "all"` can be published as APIs.
+</Note>
+
+## Guardrails
+
+Apply content filters and safety controls using Amazon Bedrock Guardrails:
+
+- **Content Filters**: Block harmful content categories
+- **Denied Topics**: Prevent discussion of specific subjects
+- **Word Filters**: Block or redact specific words/phrases
+- **Sensitive Information**: Detect and redact PII
+- **Contextual Grounding**: Reduce hallucinations for RAG bots
+
+```python
+bedrock_guardrails = {
+    "is_guardrail_enabled": True,
+    "guardrail_arn": "arn:aws:bedrock:...",
+    "guardrail_version": "1"
+}
+```
+
+## Prompt Caching
+
+Reduce costs and latency for bots with large system prompts or knowledge:
+
+- Automatically caches processed instruction prompts
+- Significant savings for frequently used bots
+- Enabled by default (can be disabled)
+
+<Accordion title="How Prompt Caching Works">
+  When prompt caching is enabled:
+  1. The bot's instruction and knowledge context are sent to Bedrock
+  2. Bedrock caches the processed prompt for ~5 minutes
+  3. Subsequent requests reuse the cached prompt
+  4. You pay reduced rates for cached tokens
+  
+  Savings: Up to 90% reduction in input token costs for cached content.
+</Accordion>
+
+## Sync Status
+
+Bots with knowledge bases or guardrails require synchronization:
+
+- **QUEUED**: Waiting to process knowledge or guardrails
+- **RUNNING**: Currently processing
+- **SUCCEEDED**: Ready to use
+- **FAILED**: Error occurred (check status reason)
+
+<Note>
+The bot is fully functional only when sync status is **SUCCEEDED**.
+</Note>
+
+## Bot Updates
+
+Modify bot settings at any time:
+
+```typescript
+// PATCH /bot/{bot_id}
+{
+  title: "Updated Title",
+  instruction: "New instructions...",
+  generation_params: { /* updated params */ },
+  agent: { /* updated tools */ }
+}
+```
+
+<Note>
+Updating knowledge sources triggers a new sync. The bot remains usable with old knowledge until sync completes.
+</Note>
+
+## Usage Analytics
+
+Track bot usage and performance:
+
+- Usage count per bot
+- Last used timestamp
+- User analytics (admin only)
+
+Administrators can view detailed analytics including:
+- Total conversations per bot
+- Token usage and costs
+- Popular bots and trends
+
+## Example Bot Configurations
+
+<Accordion title="Customer Support Bot">
+```python
+{
+  "title": "Customer Support Assistant",
+  "instruction": "You are a helpful customer support agent. Be empathetic, professional, and solution-oriented. Always ask clarifying questions if needed.",
+  "generation_params": {
+    "temperature": 0.3,  # Consistent, factual responses
+    "max_tokens": 1000
+  },
+  "knowledge": {
+    "filenames": ["support_docs.pdf", "faq.pdf"]
+  },
+  "display_retrieved_chunks": True  # Show sources
+}
+```
+</Accordion>
+
+<Accordion title="Creative Writing Assistant">
+```python
+{
+  "title": "Creative Writing Coach",
+  "instruction": "You are a creative writing mentor. Help users develop stories, characters, and plots. Be encouraging and offer specific, actionable feedback.",
+  "generation_params": {
+    "temperature": 0.9,  # Creative, varied responses
+    "max_tokens": 4000
+  },
+  "conversation_quick_starters": [
+    {
+      "title": "Character Development",
+      "example": "Help me create a complex protagonist for a sci-fi novel"
+    },
+    {
+      "title": "Plot Ideas",
+      "example": "I need help brainstorming plot twists for my mystery story"
+    }
+  ]
+}
+```
+</Accordion>
+
+<Accordion title="Data Analysis Bot">
+```python
+{
+  "title": "Data Analyst",
+  "instruction": "You are a data analyst expert. Analyze data, identify patterns, and provide actionable insights. Always explain your reasoning.",
+  "generation_params": {
+    "temperature": 0.4,
+    "max_tokens": 3000
+  },
+  "agent": {
+    "tools": [
+      {"tool_type": "plain", "name": "calculator"},
+      {"tool_type": "internet", "name": "internet_search"}
+    ]
+  }
+}
+```
+</Accordion>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Clear Instructions" icon="file-lines">
+    Write clear, specific instructions. Include examples of desired behavior and format.
+  </Card>
+  
+  <Card title="Test Thoroughly" icon="vial">
+    Test your bot with various inputs before sharing. Iterate on instructions based on results.
+  </Card>
+  
+  <Card title="Organize Knowledge" icon="folder-tree">
+    Structure knowledge documents clearly. Use descriptive filenames and organize by topic.
+  </Card>
+  
+  <Card title="Monitor Usage" icon="chart-line">
+    Review usage analytics to understand how users interact with your bot and optimize accordingly.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Add Knowledge" href="/features/knowledge-bases" icon="book">
+    Enhance your bot with RAG and custom documents
+  </Card>
+  
+  <Card title="Enable Agents" href="/features/agents" icon="wand-magic-sparkles">
+    Give your bot tools to perform actions
+  </Card>
+  
+  <Card title="Share in Store" href="/features/bot-store" icon="store">
+    Make your bot available to other users
+  </Card>
+  
+  <Card title="Publish API" href="/features/api-publishing" icon="code">
+    Create a standalone API endpoint
+  </Card>
+</CardGroup>

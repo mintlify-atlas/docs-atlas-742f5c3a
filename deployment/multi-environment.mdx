@@ -1,0 +1,553 @@
+---
+title: Multi-Environment Deployment
+description: Deploy and manage multiple Bedrock Chat environments
+---
+
+Bedrock Chat supports deploying multiple environments (dev, staging, prod) from the same codebase using type-safe parameter configuration.
+
+## Overview
+
+Multi-environment deployment allows you to:
+
+- **Isolate Resources**: Each environment has its own separate resources
+- **Environment-Specific Settings**: Different configurations per environment
+- **Cost Optimization**: Use cost-saving settings in dev, high-availability in prod
+- **Safe Testing**: Test changes in dev before deploying to production
+
+## Prerequisites
+
+Multi-environment deployment requires:
+
+1. Using the `parameter.ts` file (not `cdk.json` alone)
+2. Defining environment-specific parameters
+3. Using the `-c envName` CDK context option
+
+## Configuration
+
+### Define Environments in parameter.ts
+
+Edit `cdk/parameter.ts` to define your environments:
+
+```typescript
+import { BedrockChatParametersInput } from "./lib/utils/parameter-models";
+
+export const bedrockChatParams = new Map<string, BedrockChatParametersInput>();
+
+// Development environment
+bedrockChatParams.set("dev", {
+  bedrockRegion: "us-west-2",
+  allowedIpV4AddressRanges: ["10.0.0.0/8"],
+  selfSignUpEnabled: true,
+  
+  // Cost-saving settings
+  enableRagReplicas: false,
+  enableBotStoreReplicas: false,
+  enableLambdaSnapStart: false,
+  
+  // All models for testing
+  globalAvailableModels: [],
+});
+
+// Staging environment
+bedrockChatParams.set("staging", {
+  bedrockRegion: "us-east-1",
+  allowedIpV4AddressRanges: ["172.16.0.0/12"],
+  selfSignUpEnabled: false,
+  
+  // Mid-tier settings
+  enableRagReplicas: true,
+  enableBotStoreReplicas: false,
+  enableLambdaSnapStart: true,
+  
+  // Limited models
+  globalAvailableModels: [
+    "claude-v3.7-sonnet",
+    "claude-v3.5-sonnet",
+  ],
+});
+
+// Production environment
+bedrockChatParams.set("prod", {
+  bedrockRegion: "us-east-1",
+  allowedIpV4AddressRanges: ["192.168.0.0/16"],
+  selfSignUpEnabled: false,
+  allowedSignUpEmailDomains: ["company.com"],
+  allowedCountries: ["US", "CA"],
+  
+  // High-availability settings
+  enableRagReplicas: true,
+  enableBotStoreReplicas: true,
+  enableLambdaSnapStart: true,
+  
+  // Production-approved models
+  globalAvailableModels: [
+    "claude-v3.7-sonnet",
+    "amazon-nova-pro",
+  ],
+  
+  // Custom domain for production
+  alternateDomainName: "chat.company.com",
+  hostedZoneId: "Z0123456789ABCDEF",
+});
+```
+
+<Note>
+If you define a "default" environment in `parameter.ts`, it will override settings in `cdk.json`.
+</Note>
+
+## Deployment Commands
+
+### Deploy Specific Environment
+
+Deploy a specific environment using the `-c envName` option:
+
+<CodeGroup>
+```bash Development
+npx cdk deploy --all -c envName=dev
+```
+
+```bash Staging
+npx cdk deploy --all -c envName=staging
+```
+
+```bash Production
+npx cdk deploy --all -c envName=prod
+```
+</CodeGroup>
+
+### Deploy Default Environment
+
+If no environment is specified, the "default" environment is used:
+
+```bash
+npx cdk deploy --all
+```
+
+<Tip>
+This uses the "default" environment from `parameter.ts`, or falls back to `cdk.json` if no "default" is defined in `parameter.ts`.
+</Tip>
+
+### Bootstrap Per Environment
+
+Bootstrap each environment separately if deploying to different AWS accounts:
+
+```bash
+# Bootstrap dev environment
+npx cdk bootstrap -c envName=dev
+
+# Bootstrap prod environment
+npx cdk bootstrap -c envName=prod
+```
+
+## Stack and Resource Naming
+
+### Stack Naming Convention
+
+Environment-specific stacks are prefixed with the environment name:
+
+- **dev environment**: `dev-BedrockChatStack`, `dev-FrontendWafStack`
+- **staging environment**: `staging-BedrockChatStack`, `staging-FrontendWafStack`
+- **prod environment**: `prod-BedrockChatStack`, `prod-FrontendWafStack`
+- **default environment**: `BedrockChatStack`, `FrontendWafStack` (no prefix)
+
+### Dynamic Stacks (No Prefix)
+
+<Warning>
+Stacks created dynamically at runtime do NOT receive environment prefixes:
+- Custom bot stacks: `BrChatKbStack*`
+- API publishing stacks: `ApiPublishmentStack*`
+</Warning>
+
+### Resource Naming
+
+Only some resources receive environment prefixes:
+
+**Prefixed Resources**:
+- DynamoDB export table: `dev_ddb_export`
+- Frontend Web ACL: `dev-FrontendWebAcl`
+
+**Non-Prefixed Resources**:
+- Most resources maintain original names
+- Resources are isolated by being in different stacks
+
+### Resource Tagging
+
+All resources are tagged with the environment name:
+
+```json
+{
+  "CDKEnvironment": "dev"
+}
+```
+
+Use this tag to identify which environment a resource belongs to.
+
+## Environment Isolation
+
+Each environment creates completely separate resources:
+
+<CardGroup cols={2}>
+  <Card title="Separate Data" icon="database">
+    DynamoDB tables, S3 buckets, OpenSearch collections
+  </Card>
+  <Card title="Separate Users" icon="users">
+    Cognito user pools with independent users
+  </Card>
+  <Card title="Separate APIs" icon="network-wired">
+    API Gateway endpoints and Lambda functions
+  </Card>
+  <Card title="Separate Frontend" icon="browser">
+    CloudFront distributions with unique URLs
+  </Card>
+</CardGroup>
+
+<Info>
+Environments in the same AWS account share the region but have isolated resources. You can also deploy to different AWS accounts for complete separation.
+</Info>
+
+## Multi-Account Deployment
+
+Deploy environments to different AWS accounts for maximum isolation:
+
+### Configure AWS Profiles
+
+```bash
+# ~/.aws/config
+[profile dev-account]
+role_arn = arn:aws:iam::111111111111:role/DeploymentRole
+source_profile = default
+
+[profile prod-account]
+role_arn = arn:aws:iam::222222222222:role/DeploymentRole
+source_profile = default
+```
+
+### Deploy to Specific Account
+
+```bash
+# Deploy dev to dev account
+AWS_PROFILE=dev-account npx cdk deploy --all -c envName=dev
+
+# Deploy prod to prod account
+AWS_PROFILE=prod-account npx cdk deploy --all -c envName=prod
+```
+
+## Cost Optimization Strategies
+
+### Development Environment
+
+Optimize costs for non-production environments:
+
+```typescript
+bedrockChatParams.set("dev", {
+  // Disable replicas
+  enableRagReplicas: false,
+  enableBotStoreReplicas: false,
+  
+  // Disable SnapStart (has charges)
+  enableLambdaSnapStart: false,
+  
+  // Use cheaper models for titles
+  titleModel: "claude-v3-haiku",
+});
+```
+
+### Production Environment
+
+Prioritize availability and performance:
+
+```typescript
+bedrockChatParams.set("prod", {
+  // Enable replicas for high availability
+  enableRagReplicas: true,
+  enableBotStoreReplicas: true,
+  
+  // Enable SnapStart for better performance
+  enableLambdaSnapStart: true,
+});
+```
+
+## Environment-Specific Workflows
+
+### Typical Development Workflow
+
+<Steps>
+  <Step title="Develop Locally">
+    Make changes to the codebase and test locally.
+  </Step>
+  
+  <Step title="Deploy to Dev">
+    ```bash
+    npx cdk deploy --all -c envName=dev
+    ```
+    
+    Test changes in the dev environment.
+  </Step>
+  
+  <Step title="Deploy to Staging">
+    ```bash
+    npx cdk deploy --all -c envName=staging
+    ```
+    
+    Validate changes with staging data and users.
+  </Step>
+  
+  <Step title="Deploy to Production">
+    ```bash
+    npx cdk deploy --all -c envName=prod
+    ```
+    
+    Release to production after thorough testing.
+  </Step>
+</Steps>
+
+### CI/CD Pipeline Example
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy Bedrock Chat
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: |
+          cd cdk
+          npm ci
+      
+      - name: Deploy to Dev
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          cd cdk
+          npx cdk deploy --all -c envName=dev --require-approval never
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+      
+      - name: Deploy to Prod
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd cdk
+          npx cdk deploy --all -c envName=prod --require-approval never
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+```
+
+## Managing Environment Outputs
+
+Each environment deployment produces unique outputs:
+
+```bash
+# Dev environment outputs
+dev-BedrockChatStack.FrontendURL = https://d111111abcdef8.cloudfront.net
+dev-BedrockChatStack.AuthUserPoolId = us-east-1_DEVPOOL
+
+# Prod environment outputs
+prod-BedrockChatStack.FrontendURL = https://d222222abcdef8.cloudfront.net
+prod-BedrockChatStack.AuthUserPoolId = us-east-1_PRODPOOL
+```
+
+Store these outputs for easy reference:
+
+```bash
+# Export outputs to file
+npx cdk deploy --all -c envName=prod --outputs-file prod-outputs.json
+```
+
+## Environment Migration
+
+To migrate data between environments:
+
+<Warning>
+**Manual Process Required**: There is no automated migration tool. You must manually export and import data.
+</Warning>
+
+### Export Bots from Dev
+
+1. Use AWS CLI to export DynamoDB data:
+   ```bash
+   aws dynamodb scan --table-name dev_BotTable --output json > dev-bots.json
+   ```
+
+2. Export S3 documents:
+   ```bash
+   aws s3 sync s3://dev-documents-bucket s3://prod-documents-bucket
+   ```
+
+### Import to Production
+
+1. Import DynamoDB data:
+   ```bash
+   aws dynamodb batch-write-item --request-items file://prod-bots.json
+   ```
+
+2. Trigger knowledge base re-indexing in the application
+
+<Note>
+Consider using AWS Data Pipeline or AWS Glue for large-scale data migrations.
+</Note>
+
+## Monitoring Multiple Environments
+
+### CloudWatch Dashboards
+
+Create environment-specific dashboards:
+
+1. Go to [CloudWatch Dashboards](https://console.aws.amazon.com/cloudwatch/home#dashboards:)
+2. Create dashboard: `bedrock-chat-dev`, `bedrock-chat-prod`
+3. Add widgets for Lambda errors, API Gateway latency, etc.
+
+### CloudWatch Alarms
+
+Set different alarm thresholds per environment:
+
+```typescript
+// In CDK
+if (props.envName === "prod") {
+  // Stricter alarms for production
+  new cloudwatch.Alarm(this, "ApiErrorAlarm", {
+    metric: apiMetric,
+    threshold: 10,
+    evaluationPeriods: 1,
+  });
+} else {
+  // Relaxed alarms for dev
+  new cloudwatch.Alarm(this, "ApiErrorAlarm", {
+    metric: apiMetric,
+    threshold: 100,
+    evaluationPeriods: 3,
+  });
+}
+```
+
+## Cleanup
+
+### Destroy Specific Environment
+
+```bash
+# Destroy dev environment
+npx cdk destroy --all -c envName=dev
+
+# Destroy prod environment
+npx cdk destroy --all -c envName=prod
+```
+
+### Destroy All Environments
+
+```bash
+for env in dev staging prod; do
+  echo "Destroying $env environment..."
+  npx cdk destroy --all -c envName=$env --force
+done
+```
+
+<Warning>
+**Irreversible**: Destroying an environment deletes all data, users, and configurations. This cannot be undone.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Consistent Naming">
+    Use consistent environment names across all systems:
+    - `parameter.ts`: `dev`, `staging`, `prod`
+    - CI/CD pipelines: Same names
+    - AWS resource tags: Same names
+  </Accordion>
+  
+  <Accordion title="Document Environment Differences">
+    Maintain a document describing:
+    - Purpose of each environment
+    - Access controls and permissions
+    - Cost expectations
+    - Deployment schedule
+  </Accordion>
+  
+  <Accordion title="Test in Lower Environments First">
+    Always test changes in dev/staging before deploying to production:
+    ```
+    dev -> staging -> prod
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Different AWS Accounts for Prod">
+    Deploy production to a separate AWS account for:
+    - Better security isolation
+    - Separate billing
+    - Compliance requirements
+  </Accordion>
+  
+  <Accordion title="Monitor Costs Per Environment">
+    Use AWS Cost Explorer with filters:
+    - Filter by tag: `CDKEnvironment = dev`
+    - Set up budget alarms per environment
+    - Review monthly cost reports
+  </Accordion>
+  
+  <Accordion title="Regular Cleanup of Dev/Staging">
+    Periodically destroy and recreate dev/staging environments to:
+    - Reduce costs
+    - Test deployment process
+    - Remove old test data
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### Environment Not Found Error
+
+```
+Error: Environment dev not found in parameter.ts
+```
+
+**Solution**: Ensure the environment is defined in `parameter.ts`:
+
+```typescript
+bedrockChatParams.set("dev", {
+  // ... parameters
+});
+```
+
+### Stack Name Conflicts
+
+If you see stack name conflicts when deploying to the same account:
+
+**Solution**: Each environment uses a different stack name prefix. Ensure you're using `-c envName=` correctly.
+
+### Cross-Environment Resource Access
+
+Environments cannot access each other's resources (DynamoDB, S3, etc.) by default.
+
+**Solution**: If needed, configure cross-stack references or use IAM roles to allow specific access.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Parameters Reference" icon="book" href="/deployment/parameters">
+    Learn about all available parameters
+  </Card>
+  <Card title="CDK Deployment" icon="code" href="/deployment/cdk">
+    Understand CDK deployment process
+  </Card>
+  <Card title="CI/CD Integration" icon="gears" href="/development/contributing">
+    Set up automated deployments
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/administration/analytics">
+    Monitor your environments
+  </Card>
+</CardGroup>

@@ -1,0 +1,376 @@
+---
+title: CDK Deployment
+description: Deploy Bedrock Chat directly using AWS CDK
+---
+
+Direct CDK deployment gives you full control over the deployment process and is ideal for development environments, customization, and CI/CD pipelines.
+
+## Prerequisites
+
+<CardGroup cols={3}>
+  <Card title="UNIX/Linux" icon="terminal">
+    Mac, Linux, or WSL2 on Windows
+  </Card>
+  <Card title="Docker" icon="docker">
+    Docker Engine installed and running
+  </Card>
+  <Card title="Node.js" icon="node-js">
+    Node.js runtime environment
+  </Card>
+</CardGroup>
+
+<Warning>
+**Storage Requirements**: Ensure you have sufficient disk space. CDK bootstrap and package installation can fail if storage is insufficient. Consider expanding your volume size before deploying.
+</Warning>
+
+## Installation
+
+<Steps>
+  <Step title="Clone Repository">
+    ```bash
+    git clone https://github.com/aws-samples/bedrock-chat
+    cd bedrock-chat
+    ```
+  </Step>
+  
+  <Step title="Navigate to CDK Directory">
+    ```bash
+    cd cdk
+    ```
+  </Step>
+  
+  <Step title="Install Dependencies">
+    ```bash
+    npm ci
+    ```
+  </Step>
+</Steps>
+
+## Configuration
+
+Before deployment, configure your settings using one of two methods:
+
+### Method 1: Using cdk.json (Traditional)
+
+Edit the `cdk/cdk.json` file to set deployment parameters:
+
+```json
+{
+  "app": "npx ts-node --prefer-ts-exts bin/bedrock-chat.ts",
+  "context": {
+    "bedrockRegion": "us-east-1",
+    "allowedIpV4AddressRanges": ["0.0.0.0/1", "128.0.0.0/1"],
+    "selfSignUpEnabled": true,
+    "enableLambdaSnapStart": true,
+    "globalAvailableModels": [
+      "claude-v3.7-sonnet",
+      "claude-v3.5-sonnet",
+      "amazon-nova-pro",
+      "amazon-nova-lite",
+      "llama3-3-70b-instruct"
+    ]
+  }
+}
+```
+
+### Method 2: Using parameter.ts (Recommended)
+
+For better type safety and developer experience, use the `parameter.ts` file:
+
+```typescript
+import { BedrockChatParametersInput } from "./lib/utils/parameter-models";
+
+export const bedrockChatParams = new Map<string, BedrockChatParametersInput>();
+
+// Define parameters for the default environment
+bedrockChatParams.set("default", {
+  bedrockRegion: "us-east-1",
+  allowedIpV4AddressRanges: ["192.168.0.0/16"],
+  selfSignUpEnabled: true,
+  enableLambdaSnapStart: true,
+  globalAvailableModels: [
+    "claude-v3.7-sonnet",
+    "claude-v3.5-sonnet",
+    "amazon-nova-pro",
+    "amazon-nova-lite",
+    "llama3-3-70b-instruct",
+  ],
+});
+```
+
+<Note>
+Existing users can continue using `cdk.json` without changes. The `parameter.ts` approach is recommended for new deployments or when managing multiple environments.
+</Note>
+
+## Key Configuration Options
+
+Edit these values in your configuration:
+
+### Required Settings
+
+- **bedrockRegion**: AWS region where Bedrock is available (e.g., `us-east-1`)
+  <Warning>Bedrock is NOT available in all regions</Warning>
+
+### Security Settings
+
+- **allowedIpV4AddressRanges**: Array of allowed IPv4 CIDR blocks
+- **allowedIpV6AddressRanges**: Array of allowed IPv6 CIDR blocks
+- **selfSignUpEnabled**: Enable/disable user self-registration
+- **allowedSignUpEmailDomains**: Restrict signup to specific email domains
+- **allowedCountries**: Restrict access by country (ISO-3166 codes)
+
+### Performance Settings
+
+- **enableLambdaSnapStart**: Enable Lambda SnapStart for faster cold starts
+  <Tip>Set to `false` for [regions that don't support SnapStart](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html#snapstart-supported-regions)</Tip>
+
+- **enableRagReplicas**: Enable additional replicas for RAG (OpenSearch)
+  - `true`: Higher availability, higher cost (production)
+  - `false`: Lower cost (development)
+
+### Model Configuration
+
+- **globalAvailableModels**: Array of model IDs to enable
+  - Empty array `[]`: All models enabled
+  - Specific models: Only listed models appear in UI
+
+- **defaultModel**: Model pre-selected when users start a new chat
+- **titleModel**: Model used for generating conversation titles
+
+### Branding
+
+- **logoPath**: Relative path under `frontend/public` for the logo
+
+## Supported Model IDs
+
+The following model IDs are supported (ensure they're enabled in Bedrock console):
+
+**Claude Models**
+- `claude-v4-opus`, `claude-v4.1-opus`, `claude-v4.5-opus`
+- `claude-v4-sonnet`, `claude-v3.5-sonnet`, `claude-v3.5-sonnet-v2`, `claude-v3.7-sonnet`
+- `claude-v3.5-haiku`, `claude-v3-haiku`, `claude-v3-opus`
+
+**Amazon Nova Models**
+- `amazon-nova-pro`, `amazon-nova-lite`, `amazon-nova-micro`
+
+**Mistral Models**
+- `mistral-7b-instruct`, `mixtral-8x7b-instruct`, `mistral-large`, `mistral-large-2`
+
+**DeepSeek Models**
+- `deepseek-r1`
+
+**Meta Llama Models**
+- `llama3-3-70b-instruct`, `llama3-2-1b-instruct`, `llama3-2-3b-instruct`
+- `llama3-2-11b-instruct`, `llama3-2-90b-instruct`
+
+<Tip>
+The full list of supported models can be found in `frontend/src/constants/index.ts`.
+</Tip>
+
+## Bootstrap CDK
+
+Before deploying CDK for the first time in a region, run bootstrap:
+
+```bash
+npx cdk bootstrap
+```
+
+This creates the necessary S3 buckets and IAM roles for CDK deployments.
+
+<Note>
+Bootstrap is only required once per AWS account and region.
+</Note>
+
+## Deploy
+
+Deploy all stacks:
+
+```bash
+npx cdk deploy --require-approval never --all
+```
+
+### Deployment Output
+
+After successful deployment (approximately 10-20 minutes), you'll see output similar to:
+
+```bash
+ ✅  BedrockChatStack
+
+✨  Deployment time: 78.57s
+
+Outputs:
+BedrockChatStack.AuthUserPoolClientIdXXXXX = xxxxxxx
+BedrockChatStack.AuthUserPoolIdXXXXXX = ap-northeast-1_XXXX
+BedrockChatStack.BackendApiBackendApiUrlXXXXX = https://xxxxx.execute-api.ap-northeast-1.amazonaws.com
+BedrockChatStack.FrontendURL = https://xxxxx.cloudfront.net
+```
+
+Access the application using the **FrontendURL**.
+
+## CDK Stack Structure
+
+Bedrock Chat deploys the following CloudFormation stacks:
+
+### Main Stacks
+
+- **BedrockChatStack**: Main application stack containing:
+  - Frontend (CloudFront + S3)
+  - Backend API (API Gateway + Lambda)
+  - Database (DynamoDB)
+  - Authentication (Cognito)
+  - WebSocket API
+  - Embedding pipeline (Step Functions)
+  - Bot Store (if enabled)
+  - Usage analytics
+
+- **FrontendWafStack**: WAF Web ACL for CloudFront (deployed in us-east-1)
+
+### Dynamic Stacks
+
+These stacks are created at runtime when users create custom bots or publish APIs:
+
+- **BrChatKbStack[BotId]**: Custom Knowledge Base for a bot
+- **ApiPublishmentStack[ApiId]**: Published API for a bot
+
+## CDK Commands
+
+### Useful CDK Commands
+
+```bash
+# List all stacks
+npx cdk list
+
+# View synthesized CloudFormation template
+npx cdk synth
+
+# Show differences between deployed and local
+npx cdk diff
+
+# Deploy a specific stack
+npx cdk deploy BedrockChatStack
+
+# Destroy all stacks
+npx cdk destroy --all
+```
+
+### Watch Mode
+
+For development, use watch mode to automatically redeploy on code changes:
+
+```bash
+npx cdk watch
+```
+
+<Warning>
+Watch mode is for development only. Do not use in production.
+</Warning>
+
+## Project Structure
+
+The CDK project is organized as follows:
+
+```
+cdk/
+├── bin/
+│   ├── bedrock-chat.ts           # Main entry point
+│   ├── bedrock-custom-bot.ts     # Custom bot stack entry
+│   ├── bedrock-shared-knowledge-bases.ts
+│   └── api-publish.ts            # API publishing stack entry
+├── lib/
+│   ├── constructs/               # Reusable CDK constructs
+│   │   ├── api.ts
+│   │   ├── auth.ts
+│   │   ├── database.ts
+│   │   ├── frontend.ts
+│   │   ├── embedding.ts
+│   │   ├── bot-store.ts
+│   │   └── ...
+│   ├── utils/                    # Utility functions
+│   │   ├── parameter-models.ts   # Type-safe parameters
+│   │   └── ...
+│   ├── bedrock-chat-stack.ts     # Main stack definition
+│   ├── frontend-waf-stack.ts     # WAF stack
+│   └── ...
+├── cdk.json                       # CDK configuration
+├── parameter.ts                   # Type-safe parameters (recommended)
+└── package.json
+```
+
+## Environment Variables
+
+CDK deployment doesn't require environment variables for the main stack. However, dynamic stacks (custom bots, API publishing) use environment variables set by the application at runtime.
+
+## Cleanup
+
+To remove all deployed resources:
+
+```bash
+npx cdk destroy --all
+```
+
+<Warning>
+This will delete all resources including:
+- All data in DynamoDB tables
+- All files in S3 buckets
+- All custom bots and knowledge bases
+- All published APIs
+
+This action cannot be undone.
+</Warning>
+
+Alternatively, delete stacks manually:
+
+1. Go to [CloudFormation](https://console.aws.amazon.com/cloudformation/home)
+2. Delete `BedrockChatStack` in your deployment region
+3. Switch to **us-east-1** and delete `FrontendWafStack`
+4. Delete any remaining bot stacks (`BrChatKbStack*`) or API stacks (`ApiPublishmentStack*`)
+
+## Troubleshooting
+
+### CDK Bootstrap Fails
+
+Ensure you have sufficient IAM permissions to create:
+- S3 buckets
+- IAM roles
+- CloudFormation stacks
+
+### Docker Not Running
+
+CDK requires Docker to build Lambda functions. Ensure Docker is running:
+
+```bash
+docker ps
+```
+
+### Insufficient Disk Space
+
+CDK downloads dependencies and builds assets locally. Ensure you have at least 10GB of free disk space.
+
+### Stack Already Exists
+
+If a stack with the same name already exists:
+
+```bash
+# Delete the existing stack first
+npx cdk destroy BedrockChatStack
+
+# Then deploy again
+npx cdk deploy --all
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Multi-Environment Setup" icon="layer-group" href="/deployment/multi-environment">
+    Deploy multiple environments
+  </Card>
+  <Card title="Local Development" icon="laptop-code" href="/development/local-setup">
+    Set up local development environment
+  </Card>
+  <Card title="Parameters Reference" icon="book" href="/deployment/parameters">
+    Complete parameters documentation
+  </Card>
+  <Card title="Security Configuration" icon="shield" href="/configuration/security">
+    Configure security settings
+  </Card>
+</CardGroup>

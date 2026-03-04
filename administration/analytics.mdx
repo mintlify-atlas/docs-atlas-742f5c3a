@@ -1,0 +1,304 @@
+---
+title: Usage Analytics
+description: Monitoring usage, costs, and analyzing conversation data
+---
+
+Bedrock Chat provides comprehensive analytics and monitoring capabilities for administrators to track usage, costs, and system performance.
+
+## Overview
+
+The analytics system provides insights into:
+
+- Bot usage patterns and popularity
+- User activity and costs
+- Model usage and token consumption
+- Satisfaction metrics and feedback
+- Cost allocation across users and bots
+
+<Note>
+Analytics data is based on S3 exports from DynamoDB, which are performed hourly. The latest conversations may not be immediately reflected in analytics.
+</Note>
+
+## Cost Summary
+
+Get an overall cost summary for a specific period:
+
+```
+GET /admin/costs/summary?period=YYYY-MM&top_n=10
+```
+
+Alternatively, use timestamps:
+```
+GET /admin/costs/summary?start_time={epoch}&end_time={epoch}&top_n=10
+```
+
+### Response Structure
+
+```json
+{
+  "period": "2026-03",
+  "total_cost": 125.50,
+  "total_input_tokens": 1500000,
+  "total_output_tokens": 750000,
+  "by_model": {
+    "claude-v3.7-sonnet": 85.30,
+    "claude-v3-haiku": 25.20,
+    "amazon-nova-pro": 15.00
+  },
+  "top_users": [
+    {
+      "user_id": "abc123",
+      "email": "user@example.com",
+      "total_cost": 45.50,
+      "input_tokens": 500000,
+      "output_tokens": 250000,
+      "conversation_count": 150,
+      "by_model": { "claude-v3.7-sonnet": 45.50 }
+    }
+  ],
+  "top_bots": [
+    {
+      "bot_id": "bot-123",
+      "title": "HR Assistant",
+      "owner_user_id": "admin-1",
+      "total_cost": 60.25,
+      "input_tokens": 650000,
+      "output_tokens": 325000,
+      "user_count": 45,
+      "by_model": { "claude-v3.7-sonnet": 60.25 }
+    }
+  ]
+}
+```
+
+## User Analytics
+
+### Get All Users with Usage
+
+```
+GET /admin/users?limit=100&start=YYYYMMDDHH&end=YYYYMMDDHH&include_all=true
+```
+
+Parameters:
+- `limit`: Maximum number of users (≤ 1000)
+- `start`: Start datetime in format `YYYYMMDDHH`
+- `end`: End datetime in format `YYYYMMDDHH`
+- `include_all`: If true, includes users with no usage data
+
+Results are sorted by total price in descending order.
+
+### Get User Cost Allocation
+
+```
+GET /admin/costs/users/{user_id}?start_period=YYYY-MM&end_period=YYYY-MM
+```
+
+Returns detailed cost breakdown for a specific user across multiple periods.
+
+## Bot Analytics
+
+### Get Public Bots Usage
+
+```
+GET /admin/public-bots?limit=100&start=YYYYMMDDHH&end=YYYYMMDDHH
+```
+
+Returns all public bots sorted by usage cost, including:
+- Bot ID, title, and description
+- Whether the bot is published as an API
+- Shared scope and status
+- Owner user ID
+- Total price for the period
+
+<Note>
+Bots that have not been used during the specified period will not be listed.
+</Note>
+
+### Get Bot Analytics Details
+
+```
+GET /admin/bots/{bot_id}/analytics?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&days=30
+```
+
+Returns comprehensive analytics:
+- Total query count
+- Number of unique users
+- Average satisfaction score
+- Total cost
+- Daily usage breakdown with:
+  - Date
+  - Query count per day
+  - Unique users per day
+  - Cost per day
+
+### Popular Queries
+
+Identify the most common queries for a bot:
+
+```
+GET /admin/bots/{bot_id}/popular-queries?limit=10&days=30
+```
+
+Returns:
+```json
+[
+  {
+    "query": "How do I reset my password?",
+    "count": 156
+  },
+  {
+    "query": "What are the company holidays?",
+    "count": 89
+  }
+]
+```
+
+### Satisfaction Metrics
+
+```
+GET /admin/bots/{bot_id}/satisfaction?days=30
+```
+
+Returns user satisfaction data and feedback ratings.
+
+## Conversation Data Export
+
+Conversation logs are stored in S3 and can be queried using Amazon Athena.
+
+### Database and Table Names
+
+**Default environment:**
+- Database: `bedrockchatstack_usage_analysis`
+- Table: `ddb_export`
+
+**Named environments (e.g., "dev"):**
+- Database: `dev_bedrockchatstack_usage_analysis`
+- Table: `dev_ddb_export`
+
+### Query Conversations by Bot ID
+
+```sql
+SELECT
+    d.newimage.PK.S AS UserId,
+    d.newimage.SK.S AS ConversationId,
+    d.newimage.MessageMap.S AS MessageMap,
+    d.newimage.TotalPrice.N AS TotalPrice,
+    d.newimage.CreateTime.N AS CreateTime,
+    d.newimage.LastMessageId.S AS LastMessageId,
+    d.newimage.BotId.S AS BotId,
+    d.datehour AS DateHour
+FROM
+    bedrockchatstack_usage_analysis.ddb_export d
+WHERE
+    d.newimage.BotId.S = '<bot-id>'
+    AND d.datehour BETWEEN '<yyyy/mm/dd/hh>' AND '<yyyy/mm/dd/hh>'
+    AND d.Keys.SK.S LIKE CONCAT(d.Keys.PK.S, '#CONV#%')
+ORDER BY
+    d.datehour DESC;
+```
+
+The Bot ID can be found in the Bot Management screen URL: `https://xxxx.cloudfront.net/admin/bot/<bot-id>`
+
+### Query Conversations by User ID
+
+```sql
+SELECT
+    d.newimage.PK.S AS UserId,
+    d.newimage.SK.S AS ConversationId,
+    d.newimage.MessageMap.S AS MessageMap,
+    d.newimage.TotalPrice.N AS TotalPrice,
+    d.newimage.CreateTime.N AS CreateTime,
+    d.newimage.LastMessageId.S AS LastMessageId,
+    d.newimage.BotId.S AS BotId,
+    d.datehour AS DateHour
+FROM
+    bedrockchatstack_usage_analysis.ddb_export d
+WHERE
+    d.newimage.PK.S = '<user-id>'
+    AND d.datehour BETWEEN '<yyyy/mm/dd/hh>' AND '<yyyy/mm/dd/hh>'
+    AND d.Keys.SK.S LIKE CONCAT(d.Keys.PK.S, '#CONV#%')
+ORDER BY
+    d.datehour DESC;
+```
+
+## Feedback Loop
+
+The feedback loop feature helps analyze why LLM outputs may not meet user expectations.
+
+### How it Works
+
+1. Users provide feedback on LLM responses
+2. Feedback is stored in the `MessageMap` attribute
+3. Administrators analyze feedback patterns
+4. Adjustments are made to:
+   - Bot instructions and prompts
+   - RAG data sources
+   - Model parameters
+
+### Analyzing Feedback with Athena
+
+The `MessageMap` field in query results contains user feedback data. You can analyze this using:
+
+- Amazon Athena for SQL queries
+- Jupyter Notebooks for advanced analysis (see [example notebook](https://github.com/aws-samples/bedrock-chat/blob/main/examples/notebooks/feedback_analysis_example.ipynb))
+
+## Audit Logs
+
+View comprehensive audit logs for administrative actions:
+
+```
+GET /admin/audit-logs?user_id={id}&action_type={type}&start_time={timestamp}&end_time={timestamp}&limit=100
+```
+
+### Available Filters
+
+- `user_id`: Filter by specific user
+- `action_type`: Filter by action type (pin, unpin, view_user, etc.)
+- `start_time`: Start timestamp (epoch seconds)
+- `end_time`: End timestamp (epoch seconds)
+
+### Audit Log Fields
+
+```json
+{
+  "id": "audit-log-id",
+  "user_id": "admin-123",
+  "action_type": "pin",
+  "resource_type": "bot",
+  "resource_id": "bot-456",
+  "timestamp": 1709568000,
+  "details": {
+    "shared_status": "pinned@001",
+    "order": 1
+  },
+  "ip_address": "192.168.1.1",
+  "user_agent": "Mozilla/5.0...",
+  "success": true,
+  "error_message": null
+}
+```
+
+## Dashboard
+
+The admin dashboard provides a visual overview of:
+
+- Chatbot and user usage aggregated by time period
+- Cost sorting and comparison
+- Bot analytics with trend visualization
+- Satisfaction scores and feedback metrics
+
+## Important Notes
+
+1. **Data Latency**: Export from DynamoDB to S3 occurs hourly, so recent conversations may not appear immediately
+2. **Unused Resources**: Bots/users with no activity during the specified period are excluded from usage reports
+3. **Multi-Environment**: For named environments, remember to adjust database and table names in Athena queries
+4. **Cost Attribution**: Costs are attributed based on the model used and token consumption
+
+## Best Practices
+
+1. **Regular Monitoring**: Review cost summaries weekly to identify trends
+2. **Optimize High-Cost Bots**: Investigate expensive bots and optimize their prompts or model selection
+3. **User Training**: Identify users with high costs and provide guidance on efficient usage
+4. **Feedback Analysis**: Regularly review user feedback to improve bot quality
+5. **Retention Policies**: Define data retention policies for conversation exports
+6. **Alert Configuration**: Set up CloudWatch alarms for unusual cost patterns
