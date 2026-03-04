@@ -1,0 +1,133 @@
+{
+  "projectType": "saas",
+  "projectName": "Bedrock Chat",
+  "projectDescription": "A multilingual generative AI chat platform powered by Amazon Bedrock with custom bots, RAG, agents, and bot marketplace",
+  "theme": "palm",
+  "primaryColor": "#FF9900",
+  "lightColor": "#FFB84D",
+  "darkColor": "#CC7A00",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture",
+              "workshop"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/overview",
+              "deployment/cloudshell",
+              "deployment/cdk",
+              "deployment/regions",
+              "deployment/parameters",
+              "deployment/multi-environment"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/chat",
+              "features/custom-bots",
+              "features/knowledge-bases",
+              "features/bot-store",
+              "features/agents",
+              "features/api-publishing"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/authentication",
+              "configuration/security",
+              "configuration/customization",
+              "configuration/models",
+              "configuration/advanced"
+            ]
+          },
+          {
+            "group": "Administration",
+            "pages": [
+              "administration/overview",
+              "administration/user-management",
+              "administration/bot-management",
+              "administration/analytics"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/local-setup",
+              "development/custom-tools",
+              "development/contributing"
+            ]
+          },
+          {
+            "group": "Migration & Support",
+            "pages": [
+              "migration/overview",
+              "migration/v2-to-v3",
+              "migration/v1-to-v2",
+              "migration/v0-to-v1",
+              "troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "REST API",
+            "pages": [
+              "api/overview",
+              "api/conversations",
+              "api/bots",
+              "api/bot-store",
+              "api/published-apis"
+            ]
+          },
+          {
+            "group": "CDK API",
+            "pages": [
+              "api/cdk-stacks",
+              "api/cdk-constructs",
+              "api/cdk-parameters"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-model AI chat powered by Amazon Bedrock (Claude, Nova, Llama, Mistral)",
+    "Custom bot creation with RAG and knowledge bases",
+    "Bot store marketplace for sharing and discovering bots",
+    "AI agents with ReAct pattern and custom tool integration",
+    "Multi-tenant knowledge base architecture",
+    "Bot API publishing for standalone integrations",
+    "Administrative controls with usage analytics",
+    "Multiple authentication providers (Cognito, Google, OIDC)"
+  ],
+  "publicApiSurface": [
+    "POST /conversations - Create and manage chat conversations",
+    "GET /conversations/{id}/messages - Retrieve conversation messages",
+    "POST /bots - Create custom bots with knowledge bases",
+    "GET /bot-store - Browse and discover shared bots",
+    "POST /bots/{id}/publish - Publish bot as standalone API",
+    "POST /admin/bots/{id}/essential - Mark bots as essential",
+    "GET /admin/analytics - Retrieve usage analytics",
+    "BedrockChatStack - Main CDK stack for infrastructure",
+    "BedrockCustomBotStack - CDK stack for bot knowledge bases",
+    "ApiPublishmentStack - CDK stack for published bot APIs",
+    "cdk.json context parameters - Configuration options",
+    "parameter.ts - Type-safe deployment parameters"
+  ]
+}
